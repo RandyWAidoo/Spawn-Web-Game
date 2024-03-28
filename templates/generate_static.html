@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% set grid_size = quad_size*2 %}
+{% set cell_percent = 1/grid_size*100 %}
+
+{% block head_content %}
+{% endblock head_content %}
+
+{% block new_body_content %}
+
+<!-- Generate each quadrant 1 bit at a time while rendering them on the page-->
+{% set quadrants = [] %}
+<div class="grid-container" id="grid"></div>
+{% for map_generator in map_generators %}
+    {% set _ = quadrants.append([]) %}
+    {% for curr_quadrant in map_generator %}
+        {% set _ = quadrants.__setitem__(quadrants|length - 1, curr_quadrant) %}
+        <!-- Render quadrant on page. INCOMPLETE -->
+    {% endfor %}
+{% endfor %}
+
+{% set _ = quadrants[0].append([0]*grid_size) %} <!-- Add horizontal wall separating 1st and 3rd quads -->
+{% set _ = quadrants[0].extend(quadrants[2]) %} <!-- Add bottom left quadrant -->
+{% for row in quadrants[0] %}
+    {% set _ = row.append(0) %} <!-- Add vertical wall separating left and right quads -->
+{% endfor %}
+{% for i in range(quadrants[0]|length) %}
+    {% set row = quadrants[0][i] %}
+    {% if i < quad_size %}
+        {% set _ = row.extend(quadrants[1][i]) %}
+    {% elif i > quad_size %}
+        {% set _ = row.extend(quadrants[3][i - 1 - quad_size]) %}
+    {% endif %}
+{% endfor %}
+{% set quadrants = quadrants[0] %}
+
+<!-- Save the grid on disk to be loaded later -->
+{% set _ = dump_fn(quadrants, dump_file) %}
+{% set _ = dump_file.close()%}
+
+<!-- Create the button to go to the game -->
+<form method="get" action="{{url_for('game', username=username, game_id=save_file_name_no_ext)}}">
+    <button style="z-index: 1000; size: 30px;">Play Spawn</button>
+</form>
+
+<script>
+    let str_rep = "";
+    for (const row of {{quadrants}}){
+        for (const cell of row){
+            if (cell === 0){
+                str_rep += "*";
+            }else if (cell === 1){
+                str_rep += "_";
+            }else if (cell === 2){
+                str_rep += "$";
+            }else{ //cell === 3
+                str_rep += "!";
+            }
+        }
+        str_rep += "\n";
+    }
+    console.log(str_rep);
+</script>
+
+{% endblock new_body_content %}
