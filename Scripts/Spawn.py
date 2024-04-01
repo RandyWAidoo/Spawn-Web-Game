@@ -163,17 +163,17 @@ def generate_static(username):
         ).fetchone()
         if avaliable_map_id:
             avaliable_map_id = avaliable_map_id[0]
-            if os.path.exists(avaliable_map_id):
+            print(os.path.join(resource_dir, avaliable_map_id + ".json"))
+            if os.path.exists(os.path.join(resource_dir, avaliable_map_id + ".json")) and False: #Change this later*********************************************************************8
                 return redirect(url_for("game", username=session["username"], game_id=avaliable_map_id))
 
     #Otherwise, pass data and a map generator to the  loading page 
     # so it can load the game in real time
-    quad_size = 15
+    quad_size = 18
     quadrants = [[[0 for _ in range(quad_size)] for _ in range(quad_size)] for _ in range(4)]
 
     #Preemptively save the name of the map file in the database
     save_file_name_no_ext = uuid.uuid4().hex
-    save_file_name = os.path.join(resource_dir, save_file_name_no_ext + ".json")
     with conn:
         cursor.execute("INSERT INTO Games VALUES(?, ?, ?, ?, ?)", (save_file_name_no_ext, 0, 0, 0, 0))
         conn.commit()
@@ -191,12 +191,14 @@ def generate_static(username):
         [1]*80 + [2]*15 + [3]*5,
     ]
 
+    #Return a render of the game grid loader
+    save_file_name = os.path.join(resource_dir, save_file_name_no_ext + ".json")
     return render_template(
         "generate_static.html", username=session["username"], 
         conn=conn, cursor=cursor, quad_size=quad_size,
         map_generators=[Map_Generator.in_grid_generator(
             quadrants[i], index=[quad_size//2, quad_size//2],
-            length_bias=quad_size*(i+1), spawn_attempt_rate=1/(i+1),
+            length_bias=int(quad_size**(1 + 1/quad_size)), spawn_attempt_rate=1/(i+1),
             assign_from=cell_val_sets[i],
         ) for i in range(len(quadrants))],
         resources_dir=resource_dir,
