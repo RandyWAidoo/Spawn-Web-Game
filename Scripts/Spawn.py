@@ -41,7 +41,7 @@ def close_db():
     if "Users_cols" in global_resources:
         global_resources.pop("Users_cols")
 
-def open_db(reinit=False)->tuple[sqlite3.Connection, sqlite3.Cursor, list[str], list[str]]:
+def open_db(reinit=False)->tuple[sqlite3.Connection, sqlite3.Cursor, list[str]]:
     if reinit:
         close_db()
     if "conn" not in global_resources or not global_resources["conn"]:
@@ -168,7 +168,7 @@ def generate_static(username):
 
     #Otherwise, pass data and a map generator to the  loading page 
     # so it can load the game in real time
-    quad_size = 30
+    quad_size = 15
     quadrants = [[[0 for _ in range(quad_size)] for _ in range(quad_size)] for _ in range(4)]
 
     #Preemptively save the name of the map file in the database

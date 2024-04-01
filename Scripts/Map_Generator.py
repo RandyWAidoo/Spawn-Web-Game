@@ -32,7 +32,7 @@ def in_grid(
             axis_len = len(at(grid, index[:axis]))
             if index[axis] >= axis_len:
                 continue
-            elif at(grid, index) == 1:
+            elif at(grid, index) in assign_from:
                 continue
 
         #Mark spots in the current direction up to a random point 
@@ -48,7 +48,7 @@ def in_grid(
             end = min(end, axis_len)
 
         while index[axis] != end:
-            if at(grid, index) == 1: 
+            if at(grid, index) in assign_from: 
                 break
 
             assign(grid, index, random.choice(assign_from))
@@ -100,7 +100,7 @@ def in_grid_generator(
             axis_len = len(at(grid, index[:axis]))
             if index[axis] >= axis_len:
                 continue
-            elif at(grid, index) == 1:
+            elif at(grid, index) in assign_from:
                 continue
 
         #Mark spots in the current direction up to a random point 
@@ -116,14 +116,14 @@ def in_grid_generator(
             end = min(end, axis_len)
 
         while index[axis] != end:
-            if at(grid, index) == 1: 
+            if at(grid, index) in assign_from: 
                 break
 
             assign(grid, index, random.choice(assign_from))
             yield grid
                     
             #Spawn the children but adjust parameters for some edge cases
-            if random.randint(1, int(1/spawn_attempt_rate)) == 1:
+            if random.randint(1, int(1/spawn_attempt_rate)) in assign_from:
                 next_axis = random.randint(1, len(index)) - 1
                 if len(index) - 1 - next_axis == axis:
                     index2 = list(index)

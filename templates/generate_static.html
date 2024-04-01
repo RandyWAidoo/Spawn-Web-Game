@@ -19,20 +19,22 @@
     {% endfor %}
 {% endfor %}
 
-{% set _ = quadrants[0].append([0]*grid_size) %} <!-- Add horizontal wall separating 1st and 3rd quads -->
-{% set _ = quadrants[0].extend(quadrants[2]) %} <!-- Add bottom left quadrant -->
-{% for row in quadrants[0] %}
-    {% set _ = row.append(0) %} <!-- Add vertical wall separating left and right quads -->
+{% set _ = quadrants[0].append([0]*grid_size) %} <!-- Add horizontal wall separating top & bottom quadrants -->
+{% set _ = quadrants[0].extend(quadrants[3]) %} <!-- Add bottom left quadrant -->
+<!-- Add vertical wall separating left and right quadrants -->
+{% for i in range(grid_size + 1) %}
+    {% set _ = quadrants[0][i].append(0) %} 
 {% endfor %}
+<!-- Add right-side quadrants -->
 {% for i in range(quadrants[0]|length) %}
     {% set row = quadrants[0][i] %}
-    {% if i < quad_size %}
+    {% if i < quad_size %} <!-- Top right quadrant -->
         {% set _ = row.extend(quadrants[1][i]) %}
-    {% elif i > quad_size %}
-        {% set _ = row.extend(quadrants[3][i - 1 - quad_size]) %}
+    {% elif i > quad_size %} <!-- Bottom right quadrant -->
+        {% set _ = row.extend(quadrants[2][i - 1 - quad_size]) %}
     {% endif %}
 {% endfor %}
-{% set quadrants = quadrants[0] %}
+{% set quadrants = quadrants[0] %} <!-- Remove redundant quadrant data -->
 
 <!-- Save the grid on disk to be loaded later -->
 {% set _ = dump_fn(quadrants, dump_file) %}
@@ -48,7 +50,7 @@
     for (const row of {{quadrants}}){
         for (const cell of row){
             if (cell === 0){
-                str_rep += "*";
+                str_rep += "#";
             }else if (cell === 1){
                 str_rep += "_";
             }else if (cell === 2){
@@ -56,6 +58,7 @@
             }else{ //cell === 3
                 str_rep += "!";
             }
+            str_rep += " ";
         }
         str_rep += "\n";
     }
