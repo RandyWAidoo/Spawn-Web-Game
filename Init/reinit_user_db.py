@@ -29,4 +29,18 @@ cursor.execute(
 )
 cursor.execute("CREATE TABLE max_ppq(max_ppq INTEGER NOT NULL)")
 cursor.execute("INSERT INTO max_ppq VALUES(20)")
+
+# Create the Leaderboard table
+cursor.execute(
+    """
+    CREATE TABLE Leaderboard
+    (PlayerID TEXT PRIMARY KEY,
+    Score INTEGER NOT NULL,
+    Rank INTEGER NOT NULL UNIQUE,
+    FOREIGN KEY (PlayerID) REFERENCES Users(id))
+    """
+)
+
+
+
 conn.commit()
