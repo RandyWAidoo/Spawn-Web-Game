@@ -1,68 +1,80 @@
 {% extends "base.html" %}
 
-{% set grid_size = quad_size*2 %}
-{% set cell_percent = 1/grid_size*100 %}
-
 {% block head_content %}
+
+<style>
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(255, 255, 255, 0.8); /* fairly opaque white background */
+        display: flex;
+        flex-direction: column; /* Added to make text and spinner stack vertically */
+        justify-content: center;
+        align-items: center;
+        z-index: 9999; /* ensure it's above other content */
+    }
+      
+    .loading-spinner {
+        border: 16px solid #f3f3f3; /* Light grey */
+        border-top: 16px solid #3498db; /* Blue */
+        border-radius: 50%;
+        width: 120px;
+        height: 120px;
+        animation: spin 2s linear infinite;
+        margin-bottom: 20px; /* Added margin to separate text and spinner */
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+</style>
+
 {% endblock head_content %}
 
 {% block new_body_content %}
 
-<!-- Generate each quadrant 1 bit at a time while rendering them on the page-->
-{% set quadrants = [] %}
-<div class="grid-container" id="grid"></div>
-{% for map_generator in map_generators %}
-    {% set _ = quadrants.append([]) %}
-    {% for curr_quadrant in map_generator %}
-        {% set _ = quadrants.__setitem__(quadrants|length - 1, curr_quadrant) %}
-        <!-- Render quadrant on page. INCOMPLETE -->
-    {% endfor %}
-{% endfor %}
+<!-- Loading animation -->
+<div id="loading-module" class="loading-overlay">
+    <h1>Loading Game...</h1>
+    <br>
+    <div class="loading-spinner"></div>
+</div>
 
-{% set _ = quadrants[0].append([0]*grid_size) %} <!-- Add horizontal wall separating top & bottom quadrants -->
-{% set _ = quadrants[0].extend(quadrants[3]) %} <!-- Add bottom left quadrant -->
-<!-- Add vertical wall separating left and right quadrants -->
-{% for i in range(grid_size + 1) %}
-    {% set _ = quadrants[0][i].append(0) %} 
-{% endfor %}
-<!-- Add right-side quadrants -->
-{% for i in range(quadrants[0]|length) %}
-    {% set row = quadrants[0][i] %}
-    {% if i < quad_size %} <!-- Top right quadrant -->
-        {% set _ = row.extend(quadrants[1][i]) %}
-    {% elif i > quad_size %} <!-- Bottom right quadrant -->
-        {% set _ = row.extend(quadrants[2][i - 1 - quad_size]) %}
-    {% endif %}
-{% endfor %}
-{% set quadrants = quadrants[0] %} <!-- Remove redundant quadrant data -->
+<div id="grid"></div> <!-- The grid on screen which will be modified to show the game map -->
 
-<!-- Save the grid on disk to be loaded later -->
-{% set _ = dump_fn(quadrants, dump_file) %}
-{% set _ = dump_file.close()%}
-
-<!-- Create the button to go to the game -->
-<form method="get" action="{{url_for('game', username=username, game_id=save_file_name_no_ext)}}">
-    <button style="z-index: 1000; size: 30px;">Play Spawn</button>
-</form>
-
+<!-- Script to perform loading and redirect to the game -->
+<script src="{{url_for('static', filename='js/phaser.js')}}"></script>
+<script src="{{url_for('static', filename='js/generate_static.js')}}"></script>
 <script>
-    let str_rep = "";
-    for (const row of {{quadrants}}){
-        for (const cell of row){
-            if (cell === 0){
-                str_rep += "#";
-            }else if (cell === 1){
-                str_rep += "_";
-            }else if (cell === 2){
-                str_rep += "$";
-            }else{ //cell === 3
-                str_rep += "!";
+    // Load the map
+    load_map("{{cell_val_sets}}", quadSize=25, fps=60)
+    .then((map) => {
+        fetch( // Send it to the server to be saved
+            "{{url_for('generate_static', username=username)}}", 
+            {
+                "method": "POST", 
+                "headers": {
+                    "Content-Type": "application/json"
+                },
+                "body": JSON.stringify({
+                    "map": map, 
+                    "game_id": "{{game_id}}"
+                })
             }
-            str_rep += " ";
-        }
-        str_rep += "\n";
-    }
-    console.log(str_rep);
+        )
+        .then((reponse) => {
+            // Redirect to the game url after a few seconds
+            setTimeout(() => {
+                location.href = "{{url_for('game', username=username, game_id=game_id)}}"
+            }, 2000);
+        })
+        .catch((err) => {console.error(err);});
+    })
 </script>
 
 {% endblock new_body_content %}
+

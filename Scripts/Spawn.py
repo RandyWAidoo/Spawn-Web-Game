@@ -9,18 +9,19 @@ import random
 import uuid
 import typing as tp
 import sqlite3
+import pandas as pd
 import sys
 sys.path.append(os.path.split(__file__)[0])
 import Map_Utils
-import Map_Generator
+from Map_Generator import in_grid_generator
 import json
 
-
+#Set up
 proj_dir = os.path.split(os.path.split(__file__)[0])[0]
 resource_dir = os.path.join(proj_dir, "Resources")
 static_dir = os.path.join(proj_dir, 'static')
 templates_dir = os.path.join(proj_dir, 'templates')
-db_path = os.path.join(proj_dir, 'database.db')
+db_path = os.path.join(proj_dir, 'database.sqlite3')
 
 app = Flask(__name__, static_folder=static_dir, template_folder=templates_dir)
 app.config['SECRET_KEY'] = ''.join(
@@ -29,6 +30,19 @@ app.config['SECRET_KEY'] = ''.join(
 )
 
 global_resources = dict()
+
+#Create a list of numbers to possibly assign to each cell for each level. 
+# Each number means something different
+#  (0=blocked cell(default for all cells), 1=free cell, 2=free cell with coin, 3=free cell with enemy).
+# We will place the bias on simple open cells, then cells with coins/consumables,
+# then cells with enemies in that order and the maximum bias will decrease as the level increases.
+# This will result in less safe blocks and more enemies as the level increases
+global_resources["cell_val_sets"] = [
+    [1]*50 + [2]*49 + [3]*1,
+    [1]*65 + [2]*32 + [3]*3,
+    [1]*75 + [2]*21 + [3]*4,
+    [1]*80 + [2]*15 + [3]*5,
+]
 
 #Utility
 def close_db():
@@ -147,12 +161,103 @@ def signup():
     return render_template('signup.html', username=session["username"])
 
 # Game
-@app.route("/<username>/game/generate_static", methods=["GET"])
+@app.route("/<username>/generate_next/<quadrant_idx>/<iteration>/<grid_height>/<grid_width>/<endless>")
+def generate_next(username, quadrant_idx, iteration, grid_width, grid_height, endless):
+    if "username" not in session or session["username"] != username:
+        return redirect(url_for("login"))
+
+    conn, cursor, Users_cols = open_db()
+
+    quadrant_idx = int(quadrant_idx)
+    iteration = int(iteration)
+    grid_height, grid_width = int(grid_height), int(grid_width)
+    endless = (endless == "true")
+
+    #Create the generators if need be
+    if iteration == 1 or "generators" not in global_resources:
+        largest_dim = max(grid_height, grid_width)
+        grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
+
+        global_resources["generators"] = [ 
+            in_grid_generator(
+                grid, [grid_height//2, grid_width//2], 
+                length_bias=int(largest_dim**(1 + 1/largest_dim)), 
+                spawn_attempt_rate=1/(quadrant_idx + 1),
+                assign_from=global_resources["cell_val_sets"][quadrant_idx]
+            ),
+            in_grid_generator(
+                grid, [grid_height//2, grid_width//2], 
+                length_bias=int(largest_dim**(1 + 1/largest_dim)), 
+                spawn_attempt_rate=1/(quadrant_idx + 1),
+                assign_from=[0]
+            )
+        ]
+        global_resources["generator_idx"] = 0
+
+    #Perform an iteration and return the result
+    generators = global_resources["generators"]
+    changed = ([], None)
+    try:
+        changed = next(generators[global_resources["generator_idx"]])
+        changed = changed[1:]
+        #Increment builder index if in endless mode
+        if endless:
+            global_resources["generator_idx"] = (
+                (global_resources["generator_idx"] + 1) 
+                % len(global_resources["generators"])
+            )
+    #When the grid is done, then indicate its completion and free the map builder generator fcn
+    # or reinitialize the generators
+    except StopIteration as err:
+        if not endless:
+            global_resources.pop("generators")
+        else:
+            if global_resources["generator_idx"] == 0:
+                largest_dim = max(grid_height, grid_width)
+                grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
+                generators[0] = in_grid_generator(
+                    grid, 
+                    [random.randint(0, grid_height-1), random.randint(0, grid_width-1)], 
+                    length_bias=int(largest_dim**(1 + 1/largest_dim)), 
+                    spawn_attempt_rate=1/(quadrant_idx + 1),
+                    assign_from=global_resources["cell_val_sets"][quadrant_idx]
+                )
+                changed = next(generators[0])[1:]
+
+            elif global_resources["generator_idx"] == 1:
+                largest_dim = max(grid_height, grid_width)
+                grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)] 
+                generators[1] = in_grid_generator(
+                    grid, 
+                    [random.randint(0, grid_height-1), random.randint(0, grid_width-1)], 
+                    length_bias=int(largest_dim**(1 + 1/largest_dim)), 
+                    spawn_attempt_rate=1/(quadrant_idx + 1),
+                    assign_from=[0]
+                )
+                changed = next(generators[1])[1:]
+
+    return list(changed)
+
+@app.route("/<username>/game/generate_static", methods=["GET", "POST"])
 def generate_static(username):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
 
     conn, cursor, Users_cols = open_db()
+    debug = True
+
+    #Save a generated map when the map generation page sends one back
+    if request.method == "POST":
+        data = request.get_json()
+        game_id = data["game_id"]
+        save_file_path = os.path.join(resource_dir, game_id + ".csv")
+        if not debug:
+            grid = data["map"]
+            columns = grid[0]
+            grid = grid[0:]
+            del data
+            pd.DataFrame(data=grid, columns=columns).to_csv(save_file_path)
+        return ""
 
     #Get a game map if one with less than 10 players in each quadrant
     with conn:
@@ -163,46 +268,19 @@ def generate_static(username):
         ).fetchone()
         if avaliable_map_id:
             avaliable_map_id = avaliable_map_id[0]
-            print(os.path.join(resource_dir, avaliable_map_id + ".json"))
-            if os.path.exists(os.path.join(resource_dir, avaliable_map_id + ".json")) and False: #Change this later*********************************************************************8
+            if os.path.exists(os.path.join(resource_dir, avaliable_map_id + ".json")) and not debug:
                 return redirect(url_for("game", username=session["username"], game_id=avaliable_map_id))
 
-    #Otherwise, pass data and a map generator to the  loading page 
-    # so it can load the game in real time
-    quad_size = 18
-    quadrants = [[[0 for _ in range(quad_size)] for _ in range(quad_size)] for _ in range(4)]
-
     #Preemptively save the name of the map file in the database
-    save_file_name_no_ext = uuid.uuid4().hex
+    game_id = uuid.uuid4().hex
     with conn:
-        cursor.execute("INSERT INTO Games VALUES(?, ?, ?, ?, ?)", (save_file_name_no_ext, 0, 0, 0, 0))
-        conn.commit()
-    
-    #Create a list of numbers to possibly assign to each cell for each level. 
-    # Each number means something different
-    #  (0=blocked cell(default for all cells), 1=free cell, 2=free cell with coin, 3=free cell with enemy).
-    # We will place the bias on simple open cells, then cells with coins/consumables,
-    # then cells with enemies in that order and the maximum bias will decrease as the level increases.
-    # This will result in less safe blocks and more enemies as the level increases
-    cell_val_sets = [
-        [1]*50 + [2]*49 + [3]*1,
-        [1]*65 + [2]*32 + [3]*3,
-        [1]*75 + [2]*21 + [3]*4,
-        [1]*80 + [2]*15 + [3]*5,
-    ]
+        if not debug:
+            cursor.execute("INSERT INTO Games VALUES(?, ?, ?, ?, ?)", (game_id, 0, 0, 0, 0))
+            conn.commit()
 
-    #Return a render of the game grid loader
-    save_file_name = os.path.join(resource_dir, save_file_name_no_ext + ".json")
     return render_template(
         "generate_static.html", username=session["username"], 
-        conn=conn, cursor=cursor, quad_size=quad_size,
-        map_generators=[Map_Generator.in_grid_generator(
-            quadrants[i], index=[quad_size//2, quad_size//2],
-            length_bias=int(quad_size**(1 + 1/quad_size)), spawn_attempt_rate=1/(i+1),
-            assign_from=cell_val_sets[i],
-        ) for i in range(len(quadrants))],
-        resources_dir=resource_dir,
-        dump_fn=json.dump, dump_file=open(save_file_name, 'w')
+        cell_val_sets=global_resources["cell_val_sets"], game_id=game_id
     )
 
 @app.route("/<username>/game/<game_id>", methods=["GET"])
@@ -212,9 +290,11 @@ def game(username, game_id):
 
     conn, cursor, Users_cols = open_db()
 
-    with open(os.path.join(resource_dir, game_id + ".json")) as game_file:
-        grid = json.loads(game_file.read())
-    return render_template("game.html", username=session["username"], grid=grid)
+    game_file_path = os.path.join(resource_dir, game_id + ".json")
+    if os.path.exists(game_file_path):
+        return render_template("game.html", username=session["username"], map_path=game_file_path)
+    
+    return redirect(url_for('generate_static', username=session["username"]))
 
 #Error handlers
 @app.errorhandler(404)

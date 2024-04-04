@@ -1,1 +1,1 @@
-function run_game(grid){}
+function run_game(map_path){}

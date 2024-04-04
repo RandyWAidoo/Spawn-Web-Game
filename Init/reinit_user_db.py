@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 proj_dir = os.path.split(os.path.split(__file__)[0])[0]
-db_path = os.path.join(proj_dir, 'database.db')
+db_path = os.path.join(proj_dir, 'database.sqlite3')
 
 conn = sqlite3.connect(db_path)
 cursor = conn.cursor()

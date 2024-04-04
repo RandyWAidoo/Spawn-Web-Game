@@ -119,8 +119,9 @@ def in_grid_generator(
             if at(grid, index) in assign_from: 
                 break
 
-            assign(grid, index, random.choice(assign_from))
-            yield grid
+            value = random.choice(assign_from)
+            assign(grid, index, value)
+            yield grid, index, value
                     
             #Spawn the children but adjust parameters for some edge cases
             if random.randint(1, int(1/spawn_attempt_rate)) in assign_from:
