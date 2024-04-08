@@ -68,12 +68,20 @@ function* in_grid_generator(
         const step = backward ? -1 : 1;
         let end;
         if (backward) {
-            end = randInt(-1, index[axis]) - randInt(0, length_bias);
-            end = Math.max(end, -1);
+            if (length_bias == null){
+                end = -1;
+            }else{
+                end = randInt(-1, index[axis]) - randInt(0, length_bias);
+                end = Math.max(end, -1);
+            }
         } else {
             let axis_len = at(grid, index.slice(0, axis)).length;
-            end = randInt(index[axis], axis_len) + randInt(0, length_bias);
-            end = Math.min(end, axis_len);
+            if (length_bias == null){
+                end = axis_len;
+            }else{
+                end = randInt(index[axis], axis_len) + randInt(0, length_bias);
+                end = Math.min(end, axis_len);
+            }
         }
 
         while (index[axis] !== end) {
@@ -178,12 +186,17 @@ function load_map(cell_value_sets, quadSize, fps){
     return new Promise((resolve, reject) => {
         // Setup a generator
         function getNextGenerator(){
+            length_bias = (quadSize*(5 - quadIdx)) / (quadIdx + 1)**2;
+            spawn_attempt_rate = 1;//1/Math.floor((quadIdx + 2) / 2);//
+
+            length_bias = Math.floor(length_bias);
+            console.log(`Q${quadIdx}: LB=${length_bias}, SR=${spawn_attempt_rate}`);
+
             return in_grid_generator(
                 quadrants[quadIdx],
                 [Math.floor(quadSize / 2), Math.floor(quadSize / 2)],
                 0, false,
-                Math.pow(quadSize, 1 + (4 - 1 - quadIdx) / quadSize), 
-                1 / Math.min(2, (quadIdx + 1)),
+                length_bias, spawn_attempt_rate,
                 cell_value_sets[quadIdx]
             );
         }
@@ -211,6 +224,23 @@ function load_map(cell_value_sets, quadSize, fps){
         }, 1000 / fps);  
     })
 
+    // Ensure safe passage to the edge of each quadrant by putting a plus spanning their entire size
+    //  in their center
+    .then(() => {
+        for (let i = 0; i < 4; ++i){
+            quadIdx = i;
+            let quadrant = quadrants[i];
+            for (let y = 0; y < quadSize; ++y){
+                let choice = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[y][Math.floor(quadSize / 2)] = choice;
+            }
+            for (let x = 0; x < quadSize; ++x){
+                let choice = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[Math.floor(quadSize / 2)][x] = choice;
+            }
+        }
+    })
+
     // After generating the quadrants, fuse them into a grid
     .then(() => {
         quadrants[0].push(new Array(gridSize).fill(0)); // Add boundary between top and bottom quadrants
@@ -228,8 +258,14 @@ function load_map(cell_value_sets, quadSize, fps){
         }
         quadrants = quadrants[0]; // Drop unnecessary data
 
-        if (gridSize < 22){ // Log the map to console if it's small enough
-            print2DGrid(quadrants);
+        // If debugging, show the whole map
+        const debug = true;
+        if (debug){
+            gridElem.style.gridTemplateRows = `repeat(${gridSize + 1}, 1fr)`;
+            gridElem.style.gridTemplateColumns = `repeat(${gridSize + 1}, 1fr)`;
+            cellSizeY = document.documentElement.clientHeight / (gridSize + 1);
+            cellSizeX = document.documentElement.clientWidth / (gridSize + 1);
+            render(quadrants);
         }
 
         return quadrants;

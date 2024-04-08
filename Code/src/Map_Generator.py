@@ -5,7 +5,6 @@ import subprocess
 import platform
 import os
 import sys
-sys.path.append(os.path.split(__file__)[0])
 from Map_Utils import at, print_2D_grid, assign
 
 random.seed(80)

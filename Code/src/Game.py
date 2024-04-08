@@ -11,13 +11,11 @@ import typing as tp
 import sqlite3
 import pandas as pd
 import sys
-sys.path.append(os.path.split(__file__)[0])
 import Map_Utils
 from Map_Generator import in_grid_generator
-import json
 
 #Set up
-proj_dir = os.path.split(os.path.split(__file__)[0])[0]
+proj_dir = os.path.split(os.path.split(os.path.split(__file__)[0])[0])[0]
 resource_dir = os.path.join(proj_dir, "Resources")
 static_dir = os.path.join(proj_dir, 'static')
 templates_dir = os.path.join(proj_dir, 'templates')
@@ -244,7 +242,7 @@ def generate_static(username):
         return redirect(url_for("login"))
 
     conn, cursor, Users_cols = open_db()
-    debug = True
+    debug = False
 
     #Save a generated map when the map generation page sends one back
     if request.method == "POST":
@@ -254,9 +252,9 @@ def generate_static(username):
         if not debug:
             grid = data["map"]
             columns = grid[0]
-            grid = grid[0:]
+            grid = grid[1:]
             del data
-            pd.DataFrame(data=grid, columns=columns).to_csv(save_file_path)
+            pd.DataFrame(data=grid, columns=columns).to_csv(save_file_path, index=False)
         return ""
 
     #Get a game map if one with less than 10 players in each quadrant
@@ -268,7 +266,7 @@ def generate_static(username):
         ).fetchone()
         if avaliable_map_id:
             avaliable_map_id = avaliable_map_id[0]
-            if os.path.exists(os.path.join(resource_dir, avaliable_map_id + ".json")) and not debug:
+            if os.path.exists(os.path.join(resource_dir, avaliable_map_id + ".csv")) and not debug:
                 return redirect(url_for("game", username=session["username"], game_id=avaliable_map_id))
 
     #Preemptively save the name of the map file in the database
@@ -290,7 +288,7 @@ def game(username, game_id):
 
     conn, cursor, Users_cols = open_db()
 
-    game_file_path = os.path.join(resource_dir, game_id + ".json")
+    game_file_path = os.path.join(resource_dir, game_id + ".csv")
     if os.path.exists(game_file_path):
         return render_template("game.html", username=session["username"], map_path=game_file_path)
     
