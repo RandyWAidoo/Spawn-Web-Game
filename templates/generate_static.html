@@ -70,7 +70,7 @@
             // Redirect to the game url after a few seconds
             setTimeout(() => {
                 location.href = "{{url_for('game', username=username, game_id=game_id)}}"
-            }, 2000);
+            }, 5000);
         })
         .catch((err) => {console.error(err);});
     })
