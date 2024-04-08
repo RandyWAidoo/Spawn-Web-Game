@@ -1,33 +1,33 @@
-{%extends "base.html"%}
+{% extends "base.html" %}
 
-{%block body_content%}
+{% block body_content %}
 
-<div style="margin-top: 40px;"></div>
+<div class="login-container shadow-lg p-3 mb-5 bg-white rounded">
+    <h2 class="welcome-message">Welcome to CALICO!</h2>
+    <h1 class="mb-4">Login</h1>
 
-{%for category, message in get_flashed_messages(with_categories=True)%}
-    <div class="alert alert-{{'success' if category == 'message' else category if category == 'warning' else 'danger'}} alert-dismissible fade show" role="alert">
-        <strong>ⓘ {{message}}</strong>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    </div>
-{%endfor%}
+    {% for category, message in get_flashed_messages(with_categories=True) %}
+        <div class="alert alert-{{ 'success' if category == 'message' else category if category == 'warning' else 'danger' }} alert-dismissible fade show" role="alert">
+            <strong>ⓘ {{ message }}</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
 
-<h1>Login</h1>
-<br>
-<form method="post" action="{{url_for('login')}}">
-    <label for="username" class="form-label">Username:</label>
-    <input type="text" id="username" name="username" class="form-control">
-    <br>
+    <form method="post" action="{{ url_for('login') }}">
+        <div class="mb-3">
+            <label for="username" class="form-label">Username:</label>
+            <input type="text" id="username" name="username" class="form-control">
+        </div>
 
-    <label for="password" class="form-label">Password:</label>
-    <input type="password" id="password" name="password" class="form-control">
-    <br><br>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password:</label>
+            <input type="password" id="password" name="password" class="form-control">
+        </div>
 
-    <button type="submit" name="btn" class="btn btn-secondary">
-        Log In
-    </button>
-</form>
-<br><br>
+        <button type="submit" name="btn" class="btn btn-secondary">Log In</button>
+    </form>
 
-<p>Don't have an account? <a href="{{url_for('signup')}}">Sign Up</a></p>
+    <p class="mt-3">Don't have an account? <a href="{{ url_for('signup') }}">Sign Up</a></p>
+</div>
 
-{%endblock body_content%}
+{% endblock body_content %}
