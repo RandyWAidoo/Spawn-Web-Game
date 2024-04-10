@@ -3,7 +3,19 @@
 {%block new_body_content%}
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
-<script src="../static/js/game.js"></script>
-<script>run_game("{{map_path}}");</script> <!-- Run the game. FUNCTION INCOMPLETE. Complete in game.js-->
+<script src="{{url_for('static', filename='js/game.js')}}"></script>
+<!-- Run the game-->
+<script>
+    run_game(
+        "{{username}}", "{{game_id}}", "{{quad_size}}", "{{player_level}}", 
+        "{{url_for('static', filename='images/wall.png')}}",
+        "{{url_for('static', filename='images/character.png')}}",
+        "{{url_for('static', filename='images/character_head.png')}}",
+        "{{url_for('static', filename='images/coin.png')}}",
+        "{{url_for('static', filename='images/advesary.png')}}",
+        "{{url_for('static', filename='images/advesary_encounter.png')}}",
+        "{{url_for('static', filename='maps/' + game_id + '.csv')}}", 
+    );
+</script> 
 
 {%endblock new_body_content%}
