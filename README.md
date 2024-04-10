@@ -1,17 +1,16 @@
 How to run a game :
 
 Setting up the server to run a game:
--Run reinin_user_db.py : This creates the database and initializes all the tables required to run the game.
--Run Spawn.py : This generates the game map and initializes all the quadrats for the game and server 127.0.0.5000 is initialized which we can run in the browser
+-Run reinint_user_db.py : This creates the database and initializes all the tables required to run the game.
+-Run Game.py : This starts the server on 127.0.0.1:5000(browser url).
 
 Game Work flow:
 -After running the game, signin page is displayed and user has to signup.
--After signing up, they can login to the game which would take the user to title page 
--This is where a user can start the game or see the leaderboard
--If player chooses to start the game, the map is generated and taken to main game page
--Player can use WASD functions to navigate the player (W: Move Up, S: Move Down, A:Move right, D: Move Left)
--Player can use WASD functions to move around the map and complete their level.
--There are 4 levels which are four quadrants: The easiest would be quadrant 1 and the difficulty increases when they move to next quadrant)
+-After signing up, they can login to go the game
+-The player may be redirected to a loading page. The page should be left open until loading completes and the user is automatically redirected to the game screen.
+-Player can use arrow key functions to navigate the player. The objective is to collect coins that will randomly spawn while avoiding touching themselves or any advesaries(mines) which will also randomly spawn
+-There are 4 levels which are four quadrants: The easiest would be quadrant 1 and the difficulty increases when they move to next quadrant in a clockwise manner. 
 -If player touches any obstacle, he dies.
--Player's score increases depending on how many obstacles they have cleared and their score is updated in the leaderboard.
-_After player dies, he is redirected to the title page where he can chose to play game again or quit.
+-Player's score increases depending on how many coins they have gathered
+-If the player dies, the game restarts at the players' current level.
+-The game will always begin at the players' current level including after they leave and return
