@@ -19,14 +19,4 @@ cursor.execute(
     points INTEGER DEFAULT 0, level INTEGER DEFAULT 1)
     """
 )
-cursor.execute(
-    """
-    CREATE TABLE Games
-    (id TEXT PRIMARY KEY, 
-    Q1_n_players INTEGER DEFAULT 0, Q2_n_players INTEGER DEFAULT 0,
-    Q3_n_players INTEGER DEFAULT 0, Q4_n_players INTEGER DEFAULT 0)
-    """
-)
-cursor.execute("CREATE TABLE max_ppq(max_ppq INTEGER NOT NULL)")
-cursor.execute("INSERT INTO max_ppq VALUES(20)")
 conn.commit()

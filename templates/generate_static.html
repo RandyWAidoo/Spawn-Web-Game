@@ -51,7 +51,7 @@
 <script src="{{url_for('static', filename='js/generate_static.js')}}"></script>
 <script>
     // Load the map
-    load_map("{{cell_val_sets}}", quadSize=25, fps=60)
+    load_map(quad_size="{{quad_size}}", cell_val_sets="{{cell_val_sets}}", fps=60)
     .then((map) => {
         fetch( // Send it to the server to be saved
             "{{url_for('generate_static', username=username)}}", 

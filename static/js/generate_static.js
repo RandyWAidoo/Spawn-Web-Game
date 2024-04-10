@@ -120,26 +120,27 @@ function* in_grid_generator(
   
 
 // Load the grid/map
-function load_map(cell_value_sets, quadSize, fps){
+function load_map(quad_size, cell_value_sets, fps){
     // Setup
+    quad_size = JSON.parse(quad_size);
     cell_value_sets = JSON.parse(cell_value_sets);
-    let gridSize = quadSize * 2;
+    let gridSize = quad_size * 2;
     let gridElem = document.getElementById("grid");
     gridElem.style.display = 'grid';
     gridElem.style.height = `${document.documentElement.clientHeight}px`;
     gridElem.style.width = `${document.documentElement.clientWidth}px`;
-    gridElem.style.gridTemplateRows = `repeat(${quadSize}, 1fr)`;
-    gridElem.style.gridTemplateColumns = `repeat(${quadSize}, 1fr)`;
-    let cellSizeY = document.documentElement.clientHeight / quadSize;
-    let cellSizeX = document.documentElement.clientWidth / quadSize;
+    gridElem.style.gridTemplateRows = `repeat(${quad_size}, 1fr)`;
+    gridElem.style.gridTemplateColumns = `repeat(${quad_size}, 1fr)`;
+    let cellSizeY = document.documentElement.clientHeight / quad_size;
+    let cellSizeX = document.documentElement.clientWidth / quad_size;
 
     // Define the quadrants of the map and a current quadrant for modification
     let quadrants = [];
     for (let i=0; i<4; ++i){
         quadrants.push([]);
-        for (let j=0; j<quadSize; ++j){
+        for (let j=0; j<quad_size; ++j){
             quadrants[i].push([]);
-            for (let k=0; k<quadSize; ++k){
+            for (let k=0; k<quad_size; ++k){
                 quadrants[i][j].push(0);
             }
         }
@@ -155,7 +156,7 @@ function load_map(cell_value_sets, quadSize, fps){
             for (const row of grid) {
                 let x = 0;
                 for (const cell of row) {
-                    if (x === quadSize || y === quadSize){
+                    if (x === quad_size || y === quad_size){
                         gridElem.innerHTML += `<div id="cell[${y},${x}]" style="background-color: rgb(245, 10, 10); border: 1px solid #00f; width: ${cellSizeX}px; height: ${cellSizeY}px;"></div>`;
                     } else if (cell > 0) {
                         gridElem.innerHTML += `<div id="cell[${y},${x}]" style="background-color: rgb(245, 245, 245); border: 1px solid #000; width: ${cellSizeX}px; height: ${cellSizeY}px;"></div>`;
@@ -169,7 +170,7 @@ function load_map(cell_value_sets, quadSize, fps){
         // Otherwise, change the element at the corresponding changedIdx
         }else{
             const [y, x] = changeIdx;
-            if (x === quadSize || y === quadSize){
+            if (x === quad_size || y === quad_size){
                 // Ignore
             } else if (value > 0) {
                 document.getElementById(`cell[${y},${x}]`).style = `background-color: rgb(245, 245, 245); border: 1px solid #000; width: ${cellSizeX}px; height: ${cellSizeY}px;`;
@@ -186,7 +187,7 @@ function load_map(cell_value_sets, quadSize, fps){
     return new Promise((resolve, reject) => {
         // Setup a generator
         function getNextGenerator(){
-            length_bias = (quadSize*(5 - quadIdx)) / (quadIdx + 1)**2;
+            length_bias = (quad_size*(5 - quadIdx)) / (quadIdx + 1)**2;
             spawn_attempt_rate = 1;//1/Math.floor((quadIdx + 2) / 2);//
 
             length_bias = Math.floor(length_bias);
@@ -194,7 +195,7 @@ function load_map(cell_value_sets, quadSize, fps){
 
             return in_grid_generator(
                 quadrants[quadIdx],
-                [Math.floor(quadSize / 2), Math.floor(quadSize / 2)],
+                [Math.floor(quad_size / 2), Math.floor(quad_size / 2)],
                 0, false,
                 length_bias, spawn_attempt_rate,
                 cell_value_sets[quadIdx]
@@ -224,19 +225,22 @@ function load_map(cell_value_sets, quadSize, fps){
         }, 1000 / fps);  
     })
 
-    // Ensure safe passage to the edge of each quadrant by putting a plus spanning their entire size
-    //  in their center
+    // Ensure safe passage to the edge of each quadrant dividing each quadrant
+    //  into 4 subquadrants surrounded by free cells; basically a window-with-4-panes like shape
     .then(() => {
         for (let i = 0; i < 4; ++i){
-            quadIdx = i;
+            // 3 vertical bars of free cells, 1 to the left, 1 in the middle, 1 to the right
             let quadrant = quadrants[i];
-            for (let y = 0; y < quadSize; ++y){
-                let choice = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
-                quadrant[y][Math.floor(quadSize / 2)] = choice;
+            for (let y = 0; y < quad_size; ++y){
+                quadrant[y][0] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[y][Math.floor(quad_size / 2)] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[y][quad_size - 1] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
             }
-            for (let x = 0; x < quadSize; ++x){
-                let choice = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
-                quadrant[Math.floor(quadSize / 2)][x] = choice;
+            // 3 Horizontal bars of free cells, 1 at the top, 1 in the middle, 1 at the bottom
+            for (let x = 0; x < quad_size; ++x){
+                quadrant[0][x] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[Math.floor(quad_size / 2)][x] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
+                quadrant[quad_size - 1][x] = cell_value_sets[i][randInt(0, cell_value_sets[i].length - 1)];
             }
         }
     })
@@ -250,10 +254,10 @@ function load_map(cell_value_sets, quadSize, fps){
         quadrants[0].forEach((row) => {row.push(0);});
         // Add right side quadrants
         for (let i = 0; i < gridSize + 1; ++i) {
-            if (i < quadSize) {
+            if (i < quad_size) {
                 quadrants[1][i].forEach((item) => { quadrants[0][i].push(item); });
-            } else if (i > quadSize) {
-                quadrants[2][i - 1 - quadSize].forEach((item) => { quadrants[0][i].push(item); });
+            } else if (i > quad_size) {
+                quadrants[2][i - 1 - quad_size].forEach((item) => { quadrants[0][i].push(item); });
             }
         }
         quadrants = quadrants[0]; // Drop unnecessary data
