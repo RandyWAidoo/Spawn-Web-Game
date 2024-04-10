@@ -172,6 +172,21 @@ function run_game(
             let posToCoins = {};
             let posToAdvesaries = {};
 
+            // Handle when a player collides with an advesary
+            function handleAdvesaryCollision(checkSafeDelete=true){
+                if (!checkSafeDelete || [player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
+                    posToAdvesaries[[player.x, player.y]].destroy();
+                }
+                posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
+                const [x, y] = [player.x, player.y];
+                setTimeout(() => {
+                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                    posToAdvesaries[[x, y]].destroy();
+                    //delete posToAdvesaries[[x, y]];
+                }, 2000);
+                lose();
+            }
+
             // Add spawners for enemies and coins
             game.addSpawnAnimation(wallTileslayer, player.x, player.y, advesariesPerSec, [ // Enemy spawner
                 (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
@@ -179,21 +194,29 @@ function run_game(
                 (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
                 (x, y) => {posToAdvesaries[[x, y]].destroy();},
                 (x, y) => {
+                    const tile = wallTileslayer.getTileAtWorldXY(player.x, player.y, true);
+                    if (tile.index === coin_value){
+                        return;
+                    }
                     posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
                     game.changeTileValue(wallTileslayer, x, y, advesary_value);
+                    if (listeq([player.x, player.y], [x, y])){ // Handle the case when the player overlaps the advesary at spawn point
+                        handleAdvesaryCollision(false);
+                    }
                     setTimeout(() => {
                         if ([x, y] in posToAdvesaries){ // May not be there due to immediate deletion after an encounter
                             game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
                             posToAdvesaries[[x, y]].destroy();
                             //delete posToAdvesaries[[x, y]];
                         }
-                    }, 3000);
+                    }, 3000 + 1500 * player_level);
                 }
             ], 2);
             
             game.addSpawnAnimation(wallTileslayer, player.x, player.y, coinsPerSec, [ // Coin spawner
                 (x, y) => {
-                    if ([x, y] in posToCoins){
+                    const tile = wallTileslayer.getTileAtWorldXY(player.x, player.y, true);
+                    if (tile.index === advesary_value || [x, y] in posToCoins){
                         return;
                     }
                     posToCoins[[x, y]] = game.addSprite(x, y, 'coin');
@@ -333,6 +356,62 @@ function run_game(
                 }, 1000);
             }
 
+            // Handle when a player collides with a coin
+            function handleCoinCollision(){
+                // Handle body size/point increment
+                extendSnakeBody();
+                ++playerPoints;
+                if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
+                    posToCoins[[player.x, player.y]].destroy();
+                    game.changeTileValue(wallTileslayer, player.x, player.y, 0); // Change value back
+                    //delete posToCoins[[player.x, player.y]];
+                }
+
+                // Handle level transference once enough points are gathered
+                if (playerPoints >= pointsToAscend){
+                    const origPlayerLevel = player_level;
+
+                    let ascensionMsg;
+                    if (origPlayerLevel < 4 ){ // No ascension at max level
+                        ascending = true;
+
+                        ascensionMsg = game.add.text(
+                            player.x, player.y, 
+                            "Congrats! You've unlocked the next level!", 
+                            {
+                                fontSize: '18px',
+                                fill: '#ffffff',
+                                backgroundColor: '#16df31'
+                            }
+                        );
+                    }
+
+                    setTimeout(() => {
+                        if (origPlayerLevel < 4 ){ // No ascension level increment at max level
+                            player_level = player_level + 1;
+                        }
+                        
+                        fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
+
+                        if (origPlayerLevel < 4 ){ // No ascension reset at max level
+                            game.setPlayerBounds();
+                            ascensionMsg.destroy();
+                            game.setSpawnRates();
+
+                            for (let bodyCell of playerSnakeBody){
+                                bodyCell.destroy();
+                            }
+                            playerSnakeBody = [];
+                            player.x = minPlayerXCentered;
+                            player.y = minPlayerYCentered;
+                            
+                            ascending = false;
+                        }
+                        playerPoints = 0;
+                    }, 1000);
+                }
+            }
+
             // Handle when a players' head moves to a new position
             function handleNewPlayerHeadPosition(headTile){
                 if (headTile === null){
@@ -342,73 +421,10 @@ function run_game(
                 if (headTile.index === wall_value){
                     lose();
                 }else if (headTile.index === advesary_value){
-                    if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
-                        posToAdvesaries[[player.x, player.y]].destroy();
-                    }
-                    posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
-                    const [x, y] = [player.x, player.y];
-                    setTimeout(() => {
-                        game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                        posToAdvesaries[[x, y]].destroy();
-                        //delete posToAdvesaries[[x, y]];
-                    }, 2000);
-                    lose();
+                    handleAdvesaryCollision();
                 }else if (headTile.index === coin_value){
-                    // Handle body size/point increment
-                    extendSnakeBody();
-                    ++playerPoints;
-                    if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
-                        posToCoins[[player.x, player.y]].destroy();
-                        //delete posToCoins[[player.x, player.y]];
-                    }
-
-                    // Change value back
-                    game.changeTileValue(wallTileslayer, player.x, player.y, 0);
-
-                    // Handle level transference once enough points are gathered
-                    if (playerPoints >= pointsToAscend){
-                        const origPlayerLevel = player_level;
-
-                        let ascensionMsg;
-                        if (origPlayerLevel < 4 ){ // No ascension at max level
-                            ascending = true;
-
-                            ascensionMsg = game.add.text(
-                                player.x, player.y, 
-                                "Congrats! You've unlocked the next level!", 
-                                {
-                                    fontSize: '18px',
-                                    fill: '#ffffff',
-                                    backgroundColor: '#16df31'
-                                }
-                            );
-                        }
-
-                        setTimeout(() => {
-                            if (origPlayerLevel < 4 ){ // No ascension level increment at max level
-                                player_level = player_level + 1;
-                            }
-                            
-                            fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
-
-                            if (origPlayerLevel < 4 ){ // No ascension reset at max level
-                                game.setPlayerBounds();
-                                ascensionMsg.destroy();
-                                game.setSpawnRates();
-
-                                for (let bodyCell of playerSnakeBody){
-                                    bodyCell.destroy();
-                                }
-                                playerSnakeBody = [];
-                                playerPoints = 0;
-                                player.x = minPlayerXCentered;
-                                player.y = minPlayerYCentered;
-                                
-                                ascending = false;
-                            }
-                        }, 1000);
-                    }
-                }else{
+                    handleCoinCollision();
+                }else{ // Look for/handle collision with the self
                     for (let i=0; i<playerSnakeBody.length; ++i){
                         const bodyCell = playerSnakeBody[i];
                         if (bodyCell.x === player.x && bodyCell.y === player.y){
