@@ -43,8 +43,8 @@ function run_game(
     const mapEndPos = [mapStartPos[0] + mapSizeX, mapStartPos[1] + mapSizeY];
     const cameraSizeX = document.documentElement.clientWidth;
     const cameraSizeY = document.documentElement.clientHeight;
-    let advesariesPerSec = player_level / 5;
-    let coinsPerSec = 1 / player_level;
+    let advesariesPerSec;
+    let coinsPerSec;
     let minPlayerXCentered, minPlayerYCentered, maxPlayerXCentered, maxPlayerYCentered;
     let playerPoints = 0;
     let pointsToAscend = 15;
@@ -73,6 +73,12 @@ function run_game(
             if (tile !== null){
                 tile.index = value;
             }
+        }
+
+        // Set spawn rates of enemies, coins, etc
+        setSpawnRates(){
+            advesariesPerSec = player_level / 3;
+            coinsPerSec = 1 / player_level;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
@@ -143,7 +149,8 @@ function run_game(
             let game = this;
             let lost = false;
             let ascending = false;
-            this.setPlayerBounds();
+            game.setSpawnRates();
+            game.setPlayerBounds();
             game.cameras.main.setSize(cameraSizeX, cameraSizeY);
             game.cameras.main.setBounds(
                 mapStartPos[0] - cellSizeX, 
@@ -159,40 +166,43 @@ function run_game(
             const map = game.make.tilemap({ key: 'map', tileWidth: cellSizeX, tileHeight: cellSizeY });
             const wallTileset = map.addTilesetImage('walls', null, cellSizeX, cellSizeY, 1, 2);
             const wallTileslayer = map.createLayer(0, wallTileset, 0, 0);
-            let player = this.addSprite(minPlayerXCentered, minPlayerYCentered, 'character_head');
+            let player = game.addSprite(minPlayerXCentered, minPlayerYCentered, 'character_head');
             let playerSnakeBody = [];
             game.cameras.main.startFollow(player);
             let posToCoins = {};
+            let posToAdvesaries = {};
 
             // Add spawners for enemies and coins
-            let advesaryBuff;
-            this.addSpawnAnimation(wallTileslayer, player.x, player.y, advesariesPerSec, [ // Enemy spawner
-                (x, y) => {advesaryBuff = this.addSprite(x, y, 'advesary');},
-                (x, y) => {advesaryBuff.destroy();},
-                (x, y) => {advesaryBuff = this.addSprite(x, y, 'advesary');},
-                (x, y) => {advesaryBuff.destroy();},
+            game.addSpawnAnimation(wallTileslayer, player.x, player.y, advesariesPerSec, [ // Enemy spawner
+                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
+                (x, y) => {posToAdvesaries[[x, y]].destroy();},
+                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
+                (x, y) => {posToAdvesaries[[x, y]].destroy();},
                 (x, y) => {
-                    advesaryBuff = this.addSprite(x, y, 'advesary');
-                    this.changeTileValue(wallTileslayer, x, y, advesary_value);
+                    posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
+                    game.changeTileValue(wallTileslayer, x, y, advesary_value);
                     setTimeout(() => {
-                        advesaryBuff.destroy();
-                        this.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                        if ([x, y] in posToAdvesaries){ // May not be there due to immediate deletion after an encounter
+                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                            posToAdvesaries[[x, y]].destroy();
+                            //delete posToAdvesaries[[x, y]];
+                        }
                     }, 3000);
                 }
-            ], 4);
+            ], 2);
             
-            this.addSpawnAnimation(wallTileslayer, player.x, player.y, coinsPerSec, [ // Coin spawner
+            game.addSpawnAnimation(wallTileslayer, player.x, player.y, coinsPerSec, [ // Coin spawner
                 (x, y) => {
                     if ([x, y] in posToCoins){
                         return;
                     }
-                    posToCoins[[x, y]] = this.addSprite(x, y, 'coin');
-                    this.changeTileValue(wallTileslayer, x, y, coin_value);
+                    posToCoins[[x, y]] = game.addSprite(x, y, 'coin');
+                    game.changeTileValue(wallTileslayer, x, y, coin_value);
                     setTimeout(() => {
-                        if ([x, y] in posToCoins){
+                        if ([x, y] in posToCoins){ // Could have already been deleted by player collection
+                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
                             posToCoins[[x, y]].destroy();
-                            delete posToCoins[[x, y]];
-                            this.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                            //delete posToCoins[[x, y]];
                         }
                     }, 10000);
                 }
@@ -308,12 +318,10 @@ function run_game(
                     }
                     playerSnakeBody = [];
                     playerPoints = 0;
-                    if (advesaryBuff !== undefined // Ensure respawn point is free
-                        && advesaryBuff.x === minPlayerXCentered 
-                        && advesaryBuff.y === minPlayerYCentered)
-                    {
-                        game.changeTileValue(wallTileslayer, advesaryBuff.x, advesaryBuff.y, 0); // Change value back 
-                        advesaryBuff.destroy();
+                    if ([minPlayerXCentered, minPlayerYCentered] in posToAdvesaries){ // Ensure respawn point is free
+                        game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
+                        posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
+                        //delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
                     }
                     
                     lossMsg.destroy();
@@ -334,20 +342,24 @@ function run_game(
                 if (headTile.index === wall_value){
                     lose();
                 }else if (headTile.index === advesary_value){
-                    advesaryBuff.destroy();
-                    advesaryBuff = game.addSprite(player.x, player.y, 'advesary_encounter');
+                    if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
+                        posToAdvesaries[[player.x, player.y]].destroy();
+                    }
+                    posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
+                    const [x, y] = [player.x, player.y];
+                    setTimeout(() => {
+                        game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                        posToAdvesaries[[x, y]].destroy();
+                        //delete posToAdvesaries[[x, y]];
+                    }, 2000);
                     lose();
                 }else if (headTile.index === coin_value){
                     // Handle body size/point increment
                     extendSnakeBody();
                     ++playerPoints;
-                    if ([player.x, player.y] in posToCoins){
-                        try{ //Try catch in case the object is deleted by an interval just before this deletion
-                            posToCoins[[player.x, player.y]].destroy();
-                            delete posToCoins[[player.x, player.y]];
-                        }catch(err){
-
-                        }
+                    if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
+                        posToCoins[[player.x, player.y]].destroy();
+                        //delete posToCoins[[player.x, player.y]];
                     }
 
                     // Change value back
@@ -382,8 +394,7 @@ function run_game(
                             if (origPlayerLevel < 4 ){ // No ascension reset at max level
                                 game.setPlayerBounds();
                                 ascensionMsg.destroy();
-                                advesariesPerSec = player_level / 5;
-                                coinsPerSec = 1 / player_level;
+                                game.setSpawnRates();
 
                                 for (let bodyCell of playerSnakeBody){
                                     bodyCell.destroy();

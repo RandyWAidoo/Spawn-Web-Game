@@ -1,21 +1,30 @@
-{%extends "base.html"%}
+<!DOCTYPE html>
+<html lang="en">
+<head>
 
-{%block new_body_content%}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
-<script src="{{url_for('static', filename='js/game.js')}}"></script>
-<!-- Run the game-->
-<script>
-    run_game(
-        "{{username}}", "{{game_id}}", "{{quad_size}}", "{{player_level}}", 
-        "{{url_for('static', filename='images/wall.png')}}",
-        "{{url_for('static', filename='images/character.png')}}",
-        "{{url_for('static', filename='images/character_head.png')}}",
-        "{{url_for('static', filename='images/coin.png')}}",
-        "{{url_for('static', filename='images/advesary.png')}}",
-        "{{url_for('static', filename='images/advesary_encounter.png')}}",
-        "{{url_for('static', filename='maps/' + game_id + '.csv')}}", 
-    );
-</script> 
-
-{%endblock new_body_content%}
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Spawn</title>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+    <script src="{{url_for('static', filename='js/game.js')}}"></script>
+    <!-- Run the game-->
+    <script>
+        run_game(
+            "{{username}}", "{{game_id}}", "{{quad_size}}", "{{player_level}}", 
+            "{{url_for('static', filename='images/wall.png')}}",
+            "{{url_for('static', filename='images/character.png')}}",
+            "{{url_for('static', filename='images/character_head.png')}}",
+            "{{url_for('static', filename='images/coin.png')}}",
+            "{{url_for('static', filename='images/advesary.png')}}",
+            "{{url_for('static', filename='images/advesary_encounter.png')}}",
+            "{{url_for('static', filename='maps/' + game_id + '.csv')}}", 
+        );
+    </script>     
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+<body>
+</html>
