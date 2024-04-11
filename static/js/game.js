@@ -212,8 +212,6 @@ function run_game(
                 );
 
                 setTimeout(() => {
-                    console.clear();
-                    
                     for (let bodyCell of playerSnakeBody){
                         bodyCell.destroy();
                     }
@@ -237,7 +235,7 @@ function run_game(
                     player.y = minPlayerYCentered;
 
                     if (hardMode){
-                        /*
+                        //*
                         clearInterval(advesaryInterval);
                         clearInterval(coinInterval);
                         advesaryInterval = addAdvesaryAnimation();
@@ -286,7 +284,7 @@ function run_game(
             // Add spawners for enemies and coins
             //  Enemy spawner. Ensure a position isn't occupied before spawning there
             function addAdvesaryAnimation() {
-                game.addSpawnAnimation(wallTileslayer, advesariesPerSec, [ 
+                return game.addSpawnAnimation(wallTileslayer, advesariesPerSec, [ 
                     (x, y) => {
                         safeSpawn(x, y, () => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');});
                     },
@@ -339,7 +337,7 @@ function run_game(
                                     currCoin.destroy();
                                     coinDestroyed = true;
 
-                                    if (!lost && !ascending){
+                                    if (!lost && !ascending && playerPoints){
                                         // Take way the players' last body cell or kill the player 
                                         //  if they don't pick up a coin on time 
                                         if (playerSnakeBody.length > 0){
@@ -499,7 +497,7 @@ function run_game(
                             player.x = minPlayerXCentered;
                             player.y = minPlayerYCentered;
 
-                            /*
+                            //*
                             clearInterval(advesaryInterval);
                             clearInterval(coinInterval);
                             advesaryInterval = addAdvesaryAnimation();
