@@ -144,13 +144,14 @@ def signup():
             pw_hash = bcrypt.hashpw(pw.encode(), salt=bcrypt.gensalt())
             with conn:
                 cursor.execute(
-                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?)",
+                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?, ?)",
                     (
                         uuid.uuid4().hex,
                         username,
                         pw_hash.decode(),
                         0, 
-                        1
+                        1, 
+                        0
                     )
                 )
             conn.commit()
@@ -175,11 +176,16 @@ def update_player_stats(username, game_id, points, level):
         cursor.execute(
             """
             UPDATE Users 
-            SET points = points + ?,  
+            SET points = ?,  
+            high_score = 
+                CASE
+                    WHEN high_score < ? THEN ?
+                    ELSE high_score
+                END,
             level = ?
             WHERE username = ?
-            """, 
-            (points, level, username)
+            """,
+            (points, points, points, level, username)
         )
         conn.commit()
 

@@ -71,6 +71,7 @@ function run_game(
     let minPlayerXCentered, minPlayerYCentered, maxPlayerXCentered, maxPlayerYCentered;
     let playerPoints = 0;
     let pointsToAscend = 5;
+    const hardMode = true;
 
     class Game extends Phaser.Scene
     {
@@ -100,10 +101,10 @@ function run_game(
 
         // Set spawn rates lifespans, etc of enemies, coins, etc
         setSpawnParams(){
-            advesariesPerSec = player_level / 2;
+            advesariesPerSec = player_level / 1.3;
             coinsPerSec = 1 / player_level;
-            coinLifeSpan = 7000 - (player_level - 1) * 1000 / 5;
-            advesaryLifeSpan = 3000 - (player_level - 1) * 1000 / 5;
+            coinLifeSpan = 7000;
+            advesaryLifeSpan = 3000 - (player_level - 1) * 1000 / 2;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
@@ -218,16 +219,31 @@ function run_game(
                     }
                     playerSnakeBody = [];
                     playerPoints = 0;
+                    if (hardMode){
+                        player_level = 1;
+                        fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
+                        game.setPlayerBounds();
+                        game.setSpawnParams();
+                    }
+                    
+                    lossMsg.destroy();
+
                     if (posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]] !== undefined){ // Ensure respawn point is free
                         game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
                         posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
                         delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
                     }
-                    
-                    lossMsg.destroy();
-
                     player.x = minPlayerXCentered;
                     player.y = minPlayerYCentered;
+
+                    if (hardMode){
+                        /*
+                        clearInterval(advesaryInterval);
+                        clearInterval(coinInterval);
+                        advesaryInterval = addAdvesaryAnimation();
+                        coinInterval = addCoinAnimation();
+                        //*/
+                    }
 
                     lost = false;
                 }, 1000);
@@ -432,7 +448,9 @@ function run_game(
             // Handle when a player collides with a coin
             function handleCoinCollision(){
                 // Handle body size/point increment
-                extendSnakeBody();
+                if (playerSnakeBody.length < 4- player_level){
+                    extendSnakeBody();
+                }
                 ++playerPoints;
                 if (currCoin !== null 
                     && listeq([player.x, player.y], [currCoin.x, currCoin.y])) //Could have just been naturally destroyed
@@ -444,9 +462,7 @@ function run_game(
                 }
 
                 // Handle level transference once enough points are gathered
-                if ((player_level < 2 && playerPoints >= pointsToAscend)
-                    || (player_level >= 2 && playerSnakeBody.length >= pointsToAscend))
-                {
+                if (playerPoints > 0 && playerPoints % pointsToAscend === 0){
                     const origPlayerLevel = player_level;
 
                     let ascensionMsg;
@@ -483,14 +499,15 @@ function run_game(
                             player.x = minPlayerXCentered;
                             player.y = minPlayerYCentered;
 
+                            /*
                             clearInterval(advesaryInterval);
                             clearInterval(coinInterval);
                             advesaryInterval = addAdvesaryAnimation();
                             coinInterval = addCoinAnimation();
+                            //*/
                             
                             ascending = false;
                         }
-                        playerPoints = 0;
                     }, 1000);
                 }
             }
