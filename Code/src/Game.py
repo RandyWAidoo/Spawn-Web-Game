@@ -71,9 +71,23 @@ def get_max_ppq():
     return res
 
 #Pages
-# Authentication
+# Game rules
+@app.route("/rules")
+def rules():
+    return render_template("rules.html")
+
+# Leaderboard
+@app.route("/leaderboard")
+def leaderboard():
+    return render_template("leaderboard.html")
+
+# Home
 @app.route("/", methods=['GET', 'POST'])
 @app.route("/home", methods=['GET', 'POST'])
+def title_page():
+    return render_template("title_page.html")
+
+# Authentication
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     conn, cursor, Users_cols  = open_db()
@@ -101,7 +115,7 @@ def login():
             flash('Incorrect Username or Password', category='error')
 
     conn.close()
-    return render_template('login.html', username=session["username"])
+    return render_template('login.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -145,7 +159,7 @@ def signup():
             return redirect(url_for('login'))
 
     conn.close()
-    return render_template('signup.html', username=session["username"])
+    return render_template('signup.html')
 
 # Game
 @app.route("/<username>/game/<game_id>/update_player_stats/<points>/<level>")

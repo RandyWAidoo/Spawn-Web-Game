@@ -20,12 +20,34 @@ function listeq(a, b){
     return true;
 }
 
+function euclideanDist(v1, v2){
+    let sqrd_sum = 0;
+    if (v1.length > v2.length){
+        for (let i=0; i<v1.length; ++i){
+            if (i >= v2.length){
+                break;
+            }
+            sqrd_sum += Math.pow((v1[i] - v2[i]), 2);
+        }
+    }else{
+        for (let i=0; i<v2.length; ++i){
+            if (i >= v1.length){
+                break;
+            }
+            sqrd_sum += Math.pow((v2[i] - v1[i]), 2);
+        }
+    }
+    return Math.sqrt(sqrd_sum);
+}
+
 function run_game(
     username, game_id, quad_size, player_level, 
     wall_image_path, character_image_path, character_head_image_path,
     coin_image_path, advesary_image_path, advesary_encounter_image_path,
     map_path, 
-    wall_value=1, coin_value=3, advesary_value=4
+    // Grid values must never be -1 as -1 is the default for nonexistent tile indexes.
+    // 0 means free cell, BOTH 1 & 2 mean wall, other values amean arbitrary things
+    wall_value=1, coin_value=3, advesary_value=4 
 ){
     // Parse string parameters
     quad_size = JSON.parse(quad_size);
@@ -43,11 +65,12 @@ function run_game(
     const mapEndPos = [mapStartPos[0] + mapSizeX, mapStartPos[1] + mapSizeY];
     const cameraSizeX = document.documentElement.clientWidth;
     const cameraSizeY = document.documentElement.clientHeight;
-    let advesariesPerSec;
-    let coinsPerSec;
+    let advesariesPerSec, coinsPerSec;
+    let advesaryLifeSpan, coinLifeSpan;
+    let advesaryInterval, coinInterval;
     let minPlayerXCentered, minPlayerYCentered, maxPlayerXCentered, maxPlayerYCentered;
     let playerPoints = 0;
-    let pointsToAscend = 15;
+    let pointsToAscend = 5;
 
     class Game extends Phaser.Scene
     {
@@ -75,17 +98,19 @@ function run_game(
             }
         }
 
-        // Set spawn rates of enemies, coins, etc
-        setSpawnRates(){
-            advesariesPerSec = player_level / 3;
+        // Set spawn rates lifespans, etc of enemies, coins, etc
+        setSpawnParams(){
+            advesariesPerSec = player_level / 2;
             coinsPerSec = 1 / player_level;
+            coinLifeSpan = 7000 - (player_level - 1) * 1000 / 5;
+            advesaryLifeSpan = 3000 - (player_level - 1) * 1000 / 5;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
         //  The function will repeat the animation on an interval and at random grid locations
         //  within the camera window. This is how we will set automate the spawning of coins , enemies, etc
-        addSpawnAnimation(tileLayer, playerX, playerY, spawnsPerSec, frameGenerators, fps=1.5){
-            setInterval(() => {
+        addSpawnAnimation(tileLayer, spawnsPerSec, frameGenerators, fps=2){
+            return setInterval(() => {
                 let randPosCentered;
                 while (true){
                     let randGridPos = [
@@ -149,7 +174,7 @@ function run_game(
             let game = this;
             let lost = false;
             let ascending = false;
-            game.setSpawnRates();
+            game.setSpawnParams();
             game.setPlayerBounds();
             game.cameras.main.setSize(cameraSizeX, cameraSizeY);
             game.cameras.main.setBounds(
@@ -169,68 +194,153 @@ function run_game(
             let player = game.addSprite(minPlayerXCentered, minPlayerYCentered, 'character_head');
             let playerSnakeBody = [];
             game.cameras.main.startFollow(player);
-            let posToCoins = {};
             let posToAdvesaries = {};
 
-            // Handle when a player collides with an advesary
-            function handleAdvesaryCollision(checkSafeDelete=true){
-                if (!checkSafeDelete || [player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
-                    posToAdvesaries[[player.x, player.y]].destroy();
+            // Handle when the player loses
+            function lose(msg="Oops! You can't touch that! You lose :("){
+                lost = true;
+
+                let lossMsg = game.add.text(
+                    player.x, player.y,
+                    msg, 
+                    {
+                        fontSize: '18px',
+                        fill: '#ffffff',
+                        backgroundColor: '#ea2a2a'
+                    }
+                );
+
+                setTimeout(() => {
+                    console.clear();
+                    
+                    for (let bodyCell of playerSnakeBody){
+                        bodyCell.destroy();
+                    }
+                    playerSnakeBody = [];
+                    playerPoints = 0;
+                    if (posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]] !== undefined){ // Ensure respawn point is free
+                        game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
+                        posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
+                        delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
+                    }
+                    
+                    lossMsg.destroy();
+
+                    player.x = minPlayerXCentered;
+                    player.y = minPlayerYCentered;
+
+                    lost = false;
+                }, 1000);
+            }
+
+            // A way to ensure a spawn is safe(nothing at the spawn location) before doing it
+            function safeSpawn(x, y, spawnFn, otherConds=() => {return true;}){
+                const tile = wallTileslayer.getTileAtWorldXY(x, y, true);
+                if (lost || ascending
+                    || [wall_value, coin_value, advesary_value].includes(tile.index)
+                    || !otherConds())
+                {
+                    return;
                 }
+                spawnFn();
+            }
+
+            // A way to ensure a destroy is safe(the object exists) before doing it
+            function safeDestroy(target){
+                if (![null, undefined].includes(target)){
+                    target.destroy();
+                }
+            }
+
+            // Handle when a player collides with an advesary
+            function handleAdvesaryCollision(){
+                safeDestroy(posToAdvesaries[[player.x, player.y]]);
                 posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
                 const [x, y] = [player.x, player.y];
                 setTimeout(() => {
-                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                    posToAdvesaries[[x, y]].destroy();
-                    //delete posToAdvesaries[[x, y]];
+                    if (posToAdvesaries[[x, y]] !== undefined){
+                        game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                        posToAdvesaries[[x, y]].destroy();
+                        delete posToAdvesaries[[x, y]];
+                    }
                 }, 2000);
                 lose();
             }
 
             // Add spawners for enemies and coins
-            game.addSpawnAnimation(wallTileslayer, player.x, player.y, advesariesPerSec, [ // Enemy spawner
-                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
-                (x, y) => {posToAdvesaries[[x, y]].destroy();},
-                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
-                (x, y) => {posToAdvesaries[[x, y]].destroy();},
-                (x, y) => {
-                    const tile = wallTileslayer.getTileAtWorldXY(player.x, player.y, true);
-                    if (tile.index === coin_value){
-                        return;
+            //  Enemy spawner. Ensure a position isn't occupied before spawning there
+            function addAdvesaryAnimation() {
+                game.addSpawnAnimation(wallTileslayer, advesariesPerSec, [ 
+                    (x, y) => {
+                        safeSpawn(x, y, () => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');});
+                    },
+                    (x, y) => {safeDestroy(posToAdvesaries[[x, y]]);},
+                    (x, y) => {
+                        safeSpawn(x, y, () => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');});
+                    },
+                    (x, y) => {safeDestroy(posToAdvesaries[[x, y]]);},
+                    (x, y) => {
+                        safeSpawn(x, y, () => {
+                            posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
+                            game.changeTileValue(wallTileslayer, x, y, advesary_value);
+                            if (listeq([player.x, player.y], [x, y])){ // Handle the case when the player overlaps the advesary at spawn point
+                                handleAdvesaryCollision(false);
+                            }
+                            setTimeout(() => {
+                                if (posToAdvesaries[[x, y]] !== undefined){ // May not be there due to immediate deletion after an encounter
+                                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                                    posToAdvesaries[[x, y]].destroy();
+                                    delete posToAdvesaries[[x, y]];
+                                }
+                            }, advesaryLifeSpan);
+                        });
                     }
-                    posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
-                    game.changeTileValue(wallTileslayer, x, y, advesary_value);
-                    if (listeq([player.x, player.y], [x, y])){ // Handle the case when the player overlaps the advesary at spawn point
-                        handleAdvesaryCollision(false);
-                    }
-                    setTimeout(() => {
-                        if ([x, y] in posToAdvesaries){ // May not be there due to immediate deletion after an encounter
-                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                            posToAdvesaries[[x, y]].destroy();
-                            //delete posToAdvesaries[[x, y]];
-                        }
-                    }, 3000 + 1500 * player_level);
-                }
-            ], 2);
+                ], 3);
+            } 
+            advesaryInterval = addAdvesaryAnimation();
             
-            game.addSpawnAnimation(wallTileslayer, player.x, player.y, coinsPerSec, [ // Coin spawner
-                (x, y) => {
-                    const tile = wallTileslayer.getTileAtWorldXY(player.x, player.y, true);
-                    if (tile.index === advesary_value || [x, y] in posToCoins){
-                        return;
-                    }
-                    posToCoins[[x, y]] = game.addSprite(x, y, 'coin');
-                    game.changeTileValue(wallTileslayer, x, y, coin_value);
-                    setTimeout(() => {
-                        if ([x, y] in posToCoins){ // Could have already been deleted by player collection
-                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                            posToCoins[[x, y]].destroy();
-                            //delete posToCoins[[x, y]];
-                        }
-                    }, 10000);
-                }
-            ], 2);
+            //  Coin spawner.
+            //  Only 1 coin at a a time will exist on the screen. 
+            //  Destroy upon timeout or collection. Player dies on timeout
+            let currCoin = null; 
+            let coinMutex = false; // Coin creation must be locked until timeout, even if already collected
+            let coinDestroyed = false;
+            function addCoinAnimation(){
+                return game.addSpawnAnimation(wallTileslayer, coinsPerSec, [ 
+                    (x, y) => {
+                        safeSpawn(x, y, () => {
+                            coinMutex = true;
+                            currCoin = game.addSprite(x, y, 'coin');
+                            coinDestroyed = false;
+                            game.changeTileValue(wallTileslayer, x, y, coin_value);
+                            // Set timeout and associated behavior with a rule: 
+                            //  The farther from the player the coin is, 
+                            //  the more time they have to find it
+                            let lifeSpan = coinLifeSpan + euclideanDist([player.x, player.y], [x, y]);
+                            setTimeout(() => {
+                                if (!coinDestroyed){ // Could have already been destroyed by player collection
+                                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                                    currCoin.destroy();
+                                    coinDestroyed = true;
 
+                                    if (!lost && !ascending){
+                                        // Take way the players' last body cell or kill the player 
+                                        //  if they don't pick up a coin on time 
+                                        if (playerSnakeBody.length > 0){
+                                            playerSnakeBody[playerSnakeBody.length - 1].destroy();
+                                            playerSnakeBody.pop()
+                                        }else{
+                                            lose("Too slow!");
+                                        }
+                                    }
+                                }
+                                coinMutex = false;
+                            }, lifeSpan);
+                        }, () => {return (coinMutex === false);}); // current coin may not already be initialized
+                    }
+                ]);
+            }
+            coinInterval = addCoinAnimation();
 
             // Utility functions
             function calcLeft(x){
@@ -319,56 +429,24 @@ function run_game(
                 playerSnakeBody.push(newBodyCell);
             }
 
-            // Handle when the player loses
-            function lose(msg="Oops! You can't touch that! You lose :("){
-                lost = true;
-
-                let lossMsg = game.add.text(
-                    player.x, player.y,
-                    msg, 
-                    {
-                        fontSize: '18px',
-                        fill: '#ffffff',
-                        backgroundColor: '#ea2a2a'
-                    }
-                );
-
-                setTimeout(() => {
-                    console.clear();
-                    
-                    for (let bodyCell of playerSnakeBody){
-                        bodyCell.destroy();
-                    }
-                    playerSnakeBody = [];
-                    playerPoints = 0;
-                    if ([minPlayerXCentered, minPlayerYCentered] in posToAdvesaries){ // Ensure respawn point is free
-                        game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
-                        posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
-                        //delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
-                    }
-                    
-                    lossMsg.destroy();
-
-                    player.x = minPlayerXCentered;
-                    player.y = minPlayerYCentered;
-
-                    lost = false;
-                }, 1000);
-            }
-
             // Handle when a player collides with a coin
             function handleCoinCollision(){
                 // Handle body size/point increment
                 extendSnakeBody();
                 ++playerPoints;
-                if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
-                    posToCoins[[player.x, player.y]].destroy();
+                if (currCoin !== null 
+                    && listeq([player.x, player.y], [currCoin.x, currCoin.y])) //Could have just been naturally destroyed
+                { 
+                    // Collect the coin
                     game.changeTileValue(wallTileslayer, player.x, player.y, 0); // Change value back
-                    //delete posToCoins[[player.x, player.y]];
+                    currCoin.destroy();
+                    coinDestroyed = true;
                 }
 
                 // Handle level transference once enough points are gathered
-                if (playerPoints >= pointsToAscend){
+                if ((player_level < 2 && playerPoints >= pointsToAscend)
+                    || (player_level >= 2 && playerSnakeBody.length >= pointsToAscend))
+                {
                     const origPlayerLevel = player_level;
 
                     let ascensionMsg;
@@ -396,7 +474,7 @@ function run_game(
                         if (origPlayerLevel < 4 ){ // No ascension reset at max level
                             game.setPlayerBounds();
                             ascensionMsg.destroy();
-                            game.setSpawnRates();
+                            game.setSpawnParams();
 
                             for (let bodyCell of playerSnakeBody){
                                 bodyCell.destroy();
@@ -404,6 +482,11 @@ function run_game(
                             playerSnakeBody = [];
                             player.x = minPlayerXCentered;
                             player.y = minPlayerYCentered;
+
+                            clearInterval(advesaryInterval);
+                            clearInterval(coinInterval);
+                            advesaryInterval = addAdvesaryAnimation();
+                            coinInterval = addCoinAnimation();
                             
                             ascending = false;
                         }
@@ -424,16 +507,14 @@ function run_game(
                     handleAdvesaryCollision();
                 }else if (headTile.index === coin_value){
                     handleCoinCollision();
-                }else{ // Look for/handle collision with the self
-                    for (let i=0; i<playerSnakeBody.length; ++i){
-                        const bodyCell = playerSnakeBody[i];
-                        if (bodyCell.x === player.x && bodyCell.y === player.y){
-                            lost = true;
+                }
+                // Make the player lose upon touching themselves if their level is high enough
+                else if (player_level >= 3){
+                    for (const bodyCell of playerSnakeBody){
+                        if (listeq([player.x, player.y], [bodyCell.x, bodyCell.y])){
+                            lose("Oops! You can't touch your tail!");
                             break;
                         }
-                    }
-                    if (lost){
-                        lose("Oops! You can't touch yourself! You lose :(");
                     }
                 }
             }
@@ -491,8 +572,7 @@ function run_game(
             });
 
             // Handling going Down
-            game.input.keyboard.on('keydown-DOWN', function down(event)
-            {
+            game.input.keyboard.on('keydown-DOWN', function down(event){
                 if (!ascending && !lost){
                     let oldPos = [player.x, player.y];
                     if (downInBounds(player.y)){
