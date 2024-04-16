@@ -101,10 +101,10 @@ function run_game(
 
         // Set spawn rates lifespans, etc of enemies, coins, etc
         setSpawnParams(){
-            advesariesPerSec = player_level / 1.3;
+            advesariesPerSec = player_level;
             coinsPerSec = 1 / player_level;
             coinLifeSpan = 7000;
-            advesaryLifeSpan = 3000 - (player_level - 1) * 1000 / 2;
+            advesaryLifeSpan = 3000 + (player_level - 1) * 1000 / 2;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
@@ -175,8 +175,8 @@ function run_game(
             let game = this;
             let lost = false;
             let ascending = false;
-            game.setSpawnParams();
             game.setPlayerBounds();
+            game.setSpawnParams();
             game.cameras.main.setSize(cameraSizeX, cameraSizeY);
             game.cameras.main.setBounds(
                 mapStartPos[0] - cellSizeX, 
@@ -337,7 +337,7 @@ function run_game(
                                     currCoin.destroy();
                                     coinDestroyed = true;
 
-                                    if (!lost && !ascending && playerPoints){
+                                    if (!lost && !ascending && playerPoints % pointsToAscend){
                                         // Take way the players' last body cell or kill the player 
                                         //  if they don't pick up a coin on time 
                                         if (playerSnakeBody.length > 0){
