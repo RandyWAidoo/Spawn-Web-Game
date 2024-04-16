@@ -16,7 +16,8 @@ cursor.execute(
     CREATE TABLE Users
     (id TEXT PRIMARY KEY, 
     username TEXT UNIQUE, pw_hash TEXT, 
-    points INTEGER DEFAULT 0, level INTEGER DEFAULT 1)
+    points INTEGER DEFAULT 0, level INTEGER DEFAULT 1,
+    high_score INTEGER DEFAULT 0)
     """
 )
 conn.commit()

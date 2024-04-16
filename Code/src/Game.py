@@ -12,6 +12,7 @@ import random
 
 #Set up
 proj_dir = os.path.split(os.path.split(os.path.split(__file__)[0])[0])[0]
+temp_dir = os.path.join(proj_dir, "tmp")
 static_dir = os.path.join(proj_dir, 'static')
 map_dir = os.path.join(static_dir, "maps")
 templates_dir = os.path.join(proj_dir, 'templates')
@@ -71,9 +72,23 @@ def get_max_ppq():
     return res
 
 #Pages
-# Authentication
+# Game rules
+@app.route("/rules")
+def rules():
+    return render_template("rules.html")
+
+# Leaderboard
+@app.route("/leaderboard")
+def leaderboard():
+    return render_template("leaderboard.html")
+
+# Home
 @app.route("/", methods=['GET', 'POST'])
 @app.route("/home", methods=['GET', 'POST'])
+def title_page():
+    return render_template("title_page.html")
+
+# Authentication
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     conn, cursor, Users_cols  = open_db()
@@ -101,7 +116,7 @@ def login():
             flash('Incorrect Username or Password', category='error')
 
     conn.close()
-    return render_template('login.html', username=session["username"])
+    return render_template('login.html')
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -130,13 +145,14 @@ def signup():
             pw_hash = bcrypt.hashpw(pw.encode(), salt=bcrypt.gensalt())
             with conn:
                 cursor.execute(
-                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?)",
+                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?, ?)",
                     (
                         uuid.uuid4().hex,
                         username,
                         pw_hash.decode(),
                         0, 
-                        1
+                        1, 
+                        0
                     )
                 )
             conn.commit()
@@ -145,7 +161,7 @@ def signup():
             return redirect(url_for('login'))
 
     conn.close()
-    return render_template('signup.html', username=session["username"])
+    return render_template('signup.html')
 
 # Game
 @app.route("/<username>/game/<game_id>/update_player_stats/<points>/<level>")
@@ -161,11 +177,16 @@ def update_player_stats(username, game_id, points, level):
         cursor.execute(
             """
             UPDATE Users 
-            SET points = points + ?,  
+            SET points = ?,  
+            high_score = 
+                CASE
+                    WHEN high_score < ? THEN ?
+                    ELSE high_score
+                END,
             level = ?
             WHERE username = ?
-            """, 
-            (points, level, username)
+            """,
+            (points, points, points, level, username)
         )
         conn.commit()
 
