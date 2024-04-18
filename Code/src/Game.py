@@ -164,7 +164,62 @@ def signup():
     return render_template('signup.html')
 
 # Game
-@app.route("/<username>/game/<game_id>/update_player_stats/<points>/<level>")
+#  API urls
+@app.get("/<username>/game/<game_id>/get_rank")
+def get_rank(username, game_id):
+    if "username" not in session or session["username"] != username:
+        return redirect(url_for("login"))
+
+    conn, cursor, Users_cols = open_db()
+
+    user_high_score = cursor.execute(
+        "SELECT high_score FROM Users WHERE username = ?", (username,)
+    ).fetchone()[0]
+    user_rank = cursor.execute(
+        "SELECT COUNT(DISTINCT high_score) FROM Users WHERE high_score > ? ",
+        (user_high_score,)
+    ).fetchone()[0] + 1
+
+    conn.close()
+    return user_rank
+
+@app.get("/<username>/game/<game_id>/get_leaderboard/<window_size>/<offset>")
+def get_leaderboard(username, game_id, window_size, offset=0):
+    if "username" not in session or session["username"] != username:
+        return redirect(url_for("login"))
+
+    conn, cursor, Users_cols = open_db()
+
+    query = f"""
+        DROP TABLE IF EXISTS high_scores_desc;
+        CREATE TABLE high_scores_desc(
+            rank INTEGER PRIMARY KEY AUTOINCREMENT, 
+            high_score INTEGER UNIQUE
+        );
+        INSERT INTO high_scores_desc(high_score) 
+        SELECT DISTINCT high_score FROM Users
+        ORDER BY high_score DESC;
+
+        DROP TABLE IF EXISTS users_to_ranks_to_scores;
+        CREATE TABLE users_to_ranks_to_scores(username TEXT PRIMARY KEY, rank INTEGER, high_score INTEGER);
+        INSERT INTO users_to_ranks_to_scores
+        SELECT username, rank, Users.high_score FROM 
+        high_scores_desc JOIN Users ON high_scores_desc.high_score = Users.high_score
+        LIMIT {int(window_size)}
+        OFFSET {int(offset)};
+
+        DROP TABLE high_scores_desc;
+    """
+    cursor.executescript(query)
+    conn.commit()
+    data = cursor.execute("SELECT * FROM users_to_ranks_to_scores").fetchall()
+    cursor.execute("DROP TABLE users_to_ranks_to_scores")
+    conn.commit()
+
+    conn.close()
+    return data
+
+@app.get("/<username>/game/<game_id>/update_player_stats/<points>/<level>")
 def update_player_stats(username, game_id, points, level):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
@@ -193,6 +248,7 @@ def update_player_stats(username, game_id, points, level):
     conn.close()
     return ""
 
+#  User pages
 @app.route("/<username>/game/generate_static", methods=["GET", "POST"])
 def generate_static(username):
     if "username" not in session or session["username"] != username:

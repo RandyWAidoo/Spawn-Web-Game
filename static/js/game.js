@@ -83,7 +83,7 @@ function run_game(
             advesaryLifeSpan = 3000 + player_level * 500;
             coinsPerSec = player_level / 2;
             coinLifeSpan = 10000;
-            pointsToAscend = 15 * 3**(player_level - 1);
+            pointsToAscend = 15 * player_level;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
@@ -176,6 +176,7 @@ function run_game(
             game.cameras.main.startFollow(player);
             let posToCoins = {};
             let posToAdvesaries = {};
+            let coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
             // A way to ensure a spawn is safe(nothing at the spawn location) before doing it
             function safeSpawn(x, y, spawnFn, otherConds=() => {return true;}){
@@ -385,6 +386,8 @@ function run_game(
                     }
                     player.x = minPlayerXCentered;
                     player.y = minPlayerYCentered;
+                    coinsRemaining.destroy()
+                    coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
                     clearInterval(advesaryInterval);
                     clearInterval(coinInterval);
@@ -400,6 +403,8 @@ function run_game(
                 // Handle body size/point increment
                 extendSnakeBody();
                 ++playerPoints;
+                coinsRemaining.destroy()
+                coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                 if (posToCoins[[player.x, player.y]] !== undefined){ //Could have just been naturally deleted
                     posToCoins[[player.x, player.y]].destroy();
                     delete posToCoins[[player.x, player.y]];
@@ -448,6 +453,8 @@ function run_game(
                             game.resetGameParams();
                             player.x = minPlayerXCentered;
                             player.y = minPlayerYCentered;
+                            coinsRemaining.destroy()
+                            coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
                             clearInterval(advesaryInterval);
                             clearInterval(coinInterval);
@@ -507,8 +514,9 @@ function run_game(
                     if (leftInBounds(player.x)){
                         player.x = calcLeft(player.x);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-
                     handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
@@ -521,8 +529,9 @@ function run_game(
                     if (rightInBounds(player.x)){
                         player.x = calcRight(player.x);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
                     handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
@@ -535,8 +544,9 @@ function run_game(
                     if (upInBounds(player.y)){
                         player.y = calcUp(player.y);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
                     handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
@@ -549,8 +559,9 @@ function run_game(
                     if (downInBounds(player.y)){
                         player.y = calcDown(player.y);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
                     handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
