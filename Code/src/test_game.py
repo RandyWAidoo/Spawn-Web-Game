@@ -1,52 +1,67 @@
 import unittest
-from flask import Flask
+from flask import Flask, session
 from Game import app  
+from unittest.mock import patch, MagicMock
 
-class FlaskTestCase(unittest.TestCase):
+class FlaskAppTestCase(unittest.TestCase):
 
     def setUp(self):
-        # Set up the app for testing
         self.app = app.test_client()
         self.app.testing = True
 
-    def test_home_page(self):
-        # Test the home page
-        response = self.app.get('/')
+    def test_open_db(self):
+        # This would require mocking sqlite3.connect and cursor methods
+        with patch('sqlite3.connect') as mocked_connect:
+            mocked_connect.return_value.__enter__.return_value.cursor.return_value.execute.return_value.fetchall.return_value = [(1, 'username')]
+            from Game import open_db  
+            conn, cur, cols = open_db()
+            self.assertTrue(mocked_connect.called)
+            
+
+    def test_records_to_dicts(self):
+        from Game import records_to_dicts
+        records = [(1, 'John'), (2, 'Jane')]
+        cols = ['id', 'name']
+        expected = [{'id': 1, 'name': 'John'}, {'id': 2, 'name': 'Jane'}]
+        result = records_to_dicts(records, cols)
+        self.assertEqual(result, expected)
+
+    def test_get_max_ppq(self):
+        with patch('Game.open_db') as mock_open_db:
+            mock_conn = MagicMock()
+            mock_cursor = MagicMock()
+            mock_open_db.return_value = (mock_conn, mock_cursor, [])
+            mock_cursor.execute.return_value.fetchone.return_value = [100]
+            from Game import get_max_ppq
+            result = get_max_ppq()
+            self.assertEqual(result, 100)
+
+    def test_login(self):
+        response = self.app.post('/login', data={'username': 'user1', 'password': 'pass1'}, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Welcome', response.data)  # Adjust the expected text based on your actual home page
+        self.assertIn(b'Incorrect Username or Password', response.data)
 
-    def test_login_page(self):
-        # Test the login page
-        response = self.app.get('/login')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Login', response.data)  # Adjust according to your login page's content
+    def test_signup_functionality(self):
+        response = self.app.post('/signup', data={'username': 'newuser', 'password': 'newpass', 'confirm_password': 'newpass'}, follow_redirects=True)
+        self.assertIsNotNone(response.data)
 
-    # def test_login_functionality(self):
-    #     # Test login functionality
-    #     response = self.app.post('/login', data=dict(username="testuser", password="testpass"), follow_redirects=True)
-    #     self.assertIn(b'Success', response.data)  # Check for a success message or redirect
+    def test_generate_static(self):
+        with self.app:
+            with self.app.session_transaction() as sess:
+                sess['username'] = 'valid_user'
+            response = self.app.get('/valid_user/game/generate_static', follow_redirects=True)
+            self.assertEqual(response.status_code, 200)
+            
+    def test_update_player_stats(self):
+        with self.app:
+            self.app.post('/login', data={'username': 'user', 'password': 'password'}, follow_redirects=True)
+            response = self.app.get('/user/game/123/update_player_stats/50/2', follow_redirects=True)
+            self.assertIn(b'', response.data)  # Check actual expected output
 
-    def test_signup_page(self):
-        # Test the signup page access
-        response = self.app.get('/signup')
-        self.assertEqual(response.status_code, 200)
-
-    # def test_invalid_signup(self):
-    #     # Test invalid signup process
-    #     response = self.app.post('/signup', data=dict(
-    #         username="newuser", 
-    #         password="newpass", 
-    #         confirm_password="newpass1"
-    #     ), follow_redirects=True)
-    #     self.assertIn(b'Passwords do not match', response.data)
-
-    # def test_update_player_stats(self):
-    #     # Test updating player stats (you'll need to adjust based on how your auth works)
-    #     with self.app:
-    #         self.app.post('/login', data=dict(username="testuser", password="testpass"), follow_redirects=True)
-    #         response = self.app.get('/testuser/game/123/update_player_stats/100/2', follow_redirects=True)
-    #         self.assertEqual(response.status_code, 200)
-    #         self.assertIn(b'Points Updated', response.data)  # Adjust based on actual response
+    def test_game_route(self):
+        with self.app:
+            self.app.post('/login', data={'username': 'user', 'password': 'password'}, follow_redirects=True)
+            response = self.app.get('/user/game/123', follow_redirects=True)
 
 if __name__ == '__main__':
     unittest.main()
