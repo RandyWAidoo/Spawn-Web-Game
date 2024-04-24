@@ -165,31 +165,37 @@ def signup():
 
 # Game
 #  API urls
+@app.get("/<username>/game/<game_id>/get_rank/<collisions>")
 @app.get("/<username>/game/<game_id>/get_rank")
-def get_rank(username, game_id):
+def get_rank(username, game_id, collisions="False"):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
 
     conn, cursor, Users_cols = open_db()
 
+    collisions = (collisions.lower() == "true")
     user_high_score = cursor.execute(
         "SELECT high_score FROM Users WHERE username = ?", (username,)
     ).fetchone()[0]
     user_rank = cursor.execute(
-        "SELECT COUNT(DISTINCT high_score) FROM Users WHERE high_score > ? ",
+        f"SELECT COUNT({'DISTINCT'*collisions} high_score) FROM Users WHERE high_score > ?",
         (user_high_score,)
     ).fetchone()[0] + 1
 
     conn.close()
-    return user_rank
+    return str(user_rank)
 
-@app.get("/<username>/game/<game_id>/get_leaderboard/<window_size>/<offset>")
-def get_leaderboard(username, game_id, window_size, offset=0):
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>/<collisions>")
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>")
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>")
+@app.get("/<username>/game/<game_id>/get_leaderboard/")
+def get_leaderboard(username, game_id, limit=5, offset=0, collisions="False"):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
 
     conn, cursor, Users_cols = open_db()
 
+    collisions = (collisions.lower() == "true")
     query = f"""
         DROP TABLE IF EXISTS high_scores_desc;
         CREATE TABLE high_scores_desc(
@@ -197,7 +203,7 @@ def get_leaderboard(username, game_id, window_size, offset=0):
             high_score INTEGER UNIQUE
         );
         INSERT INTO high_scores_desc(high_score) 
-        SELECT DISTINCT high_score FROM Users
+        SELECT {"DISTINCT"*collisions} high_score FROM Users
         ORDER BY high_score DESC;
 
         DROP TABLE IF EXISTS users_to_ranks_to_scores;
@@ -205,7 +211,7 @@ def get_leaderboard(username, game_id, window_size, offset=0):
         INSERT INTO users_to_ranks_to_scores
         SELECT username, rank, Users.high_score FROM 
         high_scores_desc JOIN Users ON high_scores_desc.high_score = Users.high_score
-        LIMIT {int(window_size)}
+        LIMIT {int(limit)}
         OFFSET {int(offset)};
 
         DROP TABLE high_scores_desc;
