@@ -73,23 +73,23 @@ def get_max_ppq():
 
 #Pages
 # Game rules
-@app.route("/rules")
+@app.route("/rules/")
 def rules():
     return render_template("rules.html")
 
 # Leaderboard
-@app.route("/leaderboard")
+@app.route("/leaderboard/")
 def leaderboard():
     return render_template("leaderboard.html")
 
 # Home
 @app.route("/", methods=['GET', 'POST'])
-@app.route("/home", methods=['GET', 'POST'])
+@app.route("/home/", methods=['GET', 'POST'])
 def title_page():
     return render_template("title_page.html")
 
 # Authentication
-@app.route('/login', methods=['GET', 'POST'])
+@app.route('/login/', methods=['GET', 'POST'])
 def login():
     conn, cursor, Users_cols  = open_db()
 
@@ -118,7 +118,7 @@ def login():
     conn.close()
     return render_template('login.html')
 
-@app.route('/signup', methods=['GET', 'POST'])
+@app.route('/signup/', methods=['GET', 'POST'])
 def signup():
     conn, cursor, Users_cols  = open_db()
 
@@ -165,8 +165,8 @@ def signup():
 
 # Game
 #  API urls
-@app.get("/<username>/game/<game_id>/get_rank/<collisions>")
-@app.get("/<username>/game/<game_id>/get_rank")
+@app.get("/<username>/game/<game_id>/get_rank/<collisions>/")
+@app.get("/<username>/game/<game_id>/get_rank/")
 def get_rank(username, game_id, collisions="False"):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
@@ -185,9 +185,9 @@ def get_rank(username, game_id, collisions="False"):
     conn.close()
     return str(user_rank)
 
-@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>/<collisions>")
-@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>")
-@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>")
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>/<collisions>/")
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/<offset>/")
+@app.get("/<username>/game/<game_id>/get_leaderboard/<limit>/")
 @app.get("/<username>/game/<game_id>/get_leaderboard/")
 def get_leaderboard(username, game_id, limit=5, offset=0, collisions="False"):
     if "username" not in session or session["username"] != username:
@@ -225,7 +225,7 @@ def get_leaderboard(username, game_id, limit=5, offset=0, collisions="False"):
     conn.close()
     return data
 
-@app.get("/<username>/game/<game_id>/update_player_stats/<points>/<level>")
+@app.get("/<username>/game/<game_id>/update_player_stats/<points>/<level>/")
 def update_player_stats(username, game_id, points, level):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
@@ -255,7 +255,7 @@ def update_player_stats(username, game_id, points, level):
     return ""
 
 #  User pages
-@app.route("/<username>/game/generate_static", methods=["GET", "POST"])
+@app.route("/<username>/game/generate_static/", methods=["GET", "POST"])
 def generate_static(username):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
@@ -308,7 +308,7 @@ def generate_static(username):
         cell_val_sets=global_resources["cell_val_sets"], game_id=game_id
     )
 
-@app.route("/<username>/game/<game_id>", methods=["GET"])
+@app.route("/<username>/game/<game_id>/", methods=["GET"])
 def game(username, game_id):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))

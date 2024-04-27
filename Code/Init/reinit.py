@@ -21,3 +21,7 @@ cursor.execute(
     """
 )
 conn.commit()
+
+map_dir = os.path.join(proj_dir, 'static', "maps")
+if not os.path.exists(map_dir):
+    os.mkdir(map_dir)

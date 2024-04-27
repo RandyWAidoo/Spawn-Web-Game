@@ -181,8 +181,10 @@ function run_game(
             // A way to ensure a spawn is safe(nothing at the spawn location) before doing it
             function safeSpawn(x, y, spawnFn, otherConds=() => {return true;}){
                 const tile = wallTileslayer.getTileAtWorldXY(x, y, true);
-                if (lost || ascending
+                if (lost 
+                    || ascending
                     || [wall_value, coin_value, advesary_value].includes(tile.index)
+                    || listeq([x, y], [player.x, player.y])
                     || !otherConds())
                 {
                     return;
