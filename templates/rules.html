@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spawn - Game Rules</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #7575db;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .rules-container {
+            text-align: left;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            color: #555;
+            margin-bottom: 20px;
+        }
+        p img {
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        button {
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="rules-container">
+        <center><h1>Spawn - Game Rules</h1></center>
+        <center><p style="font-size: 25px;">The rules are simple:</p></center>
+        <p>
+            1. Collect coins until the number on your character hits 0: 
+            <img src="{{url_for('static', filename='images/coin.png')}}" alt="Coin Image">
+        </p>
+        <p>
+            2. Don't touch walls:
+            <img src="{{url_for('static', filename='images/wall.png')}}" alt="Wall Image">
+        </p>
+        <p>
+            3. Don't touch mines:
+            <img src="{{url_for('static', filename='images/advesary.png')}}" alt="Mine Image">
+        </p>
+        <p>
+            4. Don't touch your tail:
+            <img src="{{url_for('static', filename='images/player.png')}}" alt="Player Image">
+        </p>
+        <center><p style="font-size: 20px;">Good luck!</p></center>
+        <center><button onclick="window.location.href='/';">Back to Home</button></center>
+    </div>
+</body>
+</html>

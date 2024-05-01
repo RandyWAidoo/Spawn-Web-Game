@@ -25,11 +25,13 @@
             color: #333;
         }
         button {
+            width: 165px;
             background-color: #4CAF50; /* Green */
             border: none;
             color: white;
             padding: 15px 32px;
             text-align: center;
+            align-items: center;
             text-decoration: none;
             display: inline-block;
             font-size: 16px;
@@ -42,10 +44,11 @@
 <body>
     <div class="title-container">
         <h1>Play Spawn</h1>
-        <button onclick="window.location.href='/login';">Start</button>
-        <button onclick="window.location.href='/rules';">Levels</button>
-        <button onclick="window.location.href='/signup';">New Players</button>
-        <button onclick="window.location.href='/leaderboard';">High Scores</button>
+            <div>
+                <button onclick="window.location.href='/rules';">Rules</button>
+                <button onclick="window.location.href='/login';">Start</button>
+                <button onclick="window.location.href='/signup';">New Players</button>
+            </div>
     </div>
     <script>
         // Javacrpipt code as needed
