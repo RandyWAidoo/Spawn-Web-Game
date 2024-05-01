@@ -202,6 +202,8 @@ function lose(msg="Oops! You can't touch that! You lose :("){
 
         player.x = minPlayerXCentered;
         player.y = minPlayerYCentered;
+        coinsRemaining.destroy();
+        coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
         lost = false;
     }, 1000);
@@ -221,7 +223,7 @@ function handleCoinCollision(val){
         }
     }
     
-    coinsRemaining.destroy()
+    coinsRemaining.destroy();
     coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
     if (posToCoins[[player.x, player.y]] !== undefined){ //Could have just been naturally deleted
         posToCoins[[player.x, player.y]].destroy();
@@ -243,7 +245,7 @@ function handleCoinCollision(val){
 
             ascensionMsg = entire_game.add.text(
                 player.x, player.y, 
-                "Congrats! You've unlocked the next level!", 
+                "Level Up!", 
                 {
                     fontSize: '18px',
                     fill: '#ffffff',
@@ -368,100 +370,6 @@ function handlePowerUpCollision(val){
     entire_game.changeTileValue(wallTileslayer, player.x, player.y, 0);
 
 }
-
-// Handle when a players' head moves to a new position
-function handleNewPlayerHeadPosition(headTile){
-    if (headTile === null){
-        return;
-    }
-    
-    if (headTile.index === wall_value){
-        lose();
-    }else if (headTile.index === advesary_value){
-        if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
-            posToAdvesaries[[player.x, player.y]].destroy();
-        }
-        posToAdvesaries[[player.x, player.y]] = entire_game.addSprite(player.x, player.y, 'advesary_encounter');
-        const [x, y] = [player.x, player.y];
-        setTimeout(() => {
-            entire_game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-            posToAdvesaries[[x, y]].destroy();
-            //delete posToAdvesaries[[x, y]];
-        }, 2000);
-        lose();
-    }else if (headTile.index === coin_value){
-        // Handle body size/point increment
-        extendSnakeBody();
-        ++playerPoints;
-        if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
-            posToCoins[[player.x, player.y]].destroy();
-            //delete posToCoins[[player.x, player.y]];
-        }
-
-        // Change value back
-        entire_game.changeTileValue(wallTileslayer, player.x, player.y, 0);
-
-        // Handle level transference once enough points are gathered
-        if (playerPoints >= pointsToAscend){
-            const origPlayerLevel = player_level;
-
-            let ascensionMsg;
-            if (origPlayerLevel < 4){ // No ascension at max level
-                ascending = true;
-
-                ascensionMsg = entire_game.add.text(
-                    player.x, player.y, 
-                    "Congrats! You've unlocked the next level!", 
-                    {
-                        fontSize: '18px',
-                        fill: '#ffffff',
-                        backgroundColor: '#16df31'
-                    }
-                );
-            }
-
-            setTimeout(() => {
-                if (origPlayerLevel < 4 ){ // No ascension level increment at max level
-                    player_level = player_level + 1;
-                }
-                
-                fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`); 
-                //get leaderboard 
-
-                if (origPlayerLevel < 4 ){ // No ascension reset at max level
-                    entire_game.setPlayerBounds();
-                    ascensionMsg.destroy();
-                    entire_game.setSpawnRates();
-
-                    for (let bodyCell of playerSnakeBody){
-                        bodyCell.destroy();
-                    }
-                    playerSnakeBody = [];
-                    playerPoints = 0;
-                    playerDir = "";
-                    wait_time = 4;
-                    movements = ['keydown-LEFT', 'keydown-RIGHT', 'keydown-UP', 'keydown-DOWN'];
-                    player.x = minPlayerXCentered;
-                    player.y = minPlayerYCentered;
-                    
-                    ascending = false;
-                }
-            }, 1000);
-        }
-    }else{
-        for (let i=0; i<playerSnakeBody.length; ++i){
-            const bodyCell = playerSnakeBody[i];
-            if (bodyCell.x === player.x && bodyCell.y === player.y){
-                lost = true;
-                break;
-            }
-        }
-        if (lost){
-            lose("Oops! You can't touch yourself! You lose :(");
-        }
-    }
-}
-
 
 // Move the snake body to follow the players' head
 function moveSnakeBody(oldPos){
