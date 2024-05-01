@@ -43,11 +43,13 @@ function run_game(
     const mapEndPos = [mapStartPos[0] + mapSizeX, mapStartPos[1] + mapSizeY];
     const cameraSizeX = document.documentElement.clientWidth;
     const cameraSizeY = document.documentElement.clientHeight;
-    let advesariesPerSec;
-    let coinsPerSec;
+    let advesariesPerSec, coinsPerSec;
+    let advesaryInterval, coinInterval;
+    let advesaryLifeSpan = 0;
+    let coinLifeSpan = 0;
     let minPlayerXCentered, minPlayerYCentered, maxPlayerXCentered, maxPlayerYCentered;
     let playerPoints = 0;
-    let pointsToAscend = 15;
+    let pointsToAscend;
 
     class Game extends Phaser.Scene
     {
@@ -75,17 +77,20 @@ function run_game(
             }
         }
 
-        // Set spawn rates of enemies, coins, etc
-        setSpawnRates(){
-            advesariesPerSec = player_level / 3;
-            coinsPerSec = 1 / player_level;
+        // Set spawn rates, points to level up, etc
+        resetGameParams(){
+            advesariesPerSec = player_level;
+            advesaryLifeSpan = 3000 + player_level * 500;
+            coinsPerSec = player_level / 2;
+            coinLifeSpan = 10000;
+            pointsToAscend = 15 * player_level;
         }
 
         // Function to add an animation a tile as it spawns a coin, enemy, or whatever else.
         //  The function will repeat the animation on an interval and at random grid locations
         //  within the camera window. This is how we will set automate the spawning of coins , enemies, etc
-        addSpawnAnimation(tileLayer, playerX, playerY, spawnsPerSec, frameGenerators, fps=1.5){
-            setInterval(() => {
+        addSpawnAnimation(tileLayer, spawnsPerSec, frameGenerators, fps=1.5){
+            return setInterval(() => {
                 let randPosCentered;
                 while (true){
                     let randGridPos = [
@@ -149,8 +154,8 @@ function run_game(
             let game = this;
             let lost = false;
             let ascending = false;
-            game.setSpawnRates();
             game.setPlayerBounds();
+            game.resetGameParams();
             game.cameras.main.setSize(cameraSizeX, cameraSizeY);
             game.cameras.main.setBounds(
                 mapStartPos[0] - cellSizeX, 
@@ -163,50 +168,103 @@ function run_game(
                 fill: '#ffffff',
                 backgroundColor: '#000000'
             });
-            const map = game.make.tilemap({ key: 'map', tileWidth: cellSizeX, tileHeight: cellSizeY });
-            const wallTileset = map.addTilesetImage('walls', null, cellSizeX, cellSizeY, 1, 2);
-            const wallTileslayer = map.createLayer(0, wallTileset, 0, 0);
+            let map = game.make.tilemap({ key: 'map', tileWidth: cellSizeX, tileHeight: cellSizeY });
+            let wallTileset = map.addTilesetImage('walls', null, cellSizeX, cellSizeY, 1, 2);
+            let wallTileslayer = map.createLayer(0, wallTileset, 0, 0);
             let player = game.addSprite(minPlayerXCentered, minPlayerYCentered, 'character_head');
             let playerSnakeBody = [];
             game.cameras.main.startFollow(player);
             let posToCoins = {};
             let posToAdvesaries = {};
+            let coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
+
+            // A way to ensure a spawn is safe(nothing at the spawn location) before doing it
+            function safeSpawn(x, y, spawnFn, otherConds=() => {return true;}){
+                const tile = wallTileslayer.getTileAtWorldXY(x, y, true);
+                if (lost 
+                    || ascending
+                    || [wall_value, coin_value, advesary_value].includes(tile.index)
+                    || listeq([x, y], [player.x, player.y])
+                    || !otherConds())
+                {
+                    return;
+                }
+                spawnFn();
+            }
+
+            // A way to ensure a destroy is safe(the object exists) before doing it
+            function safeDestroy(target){
+                if (![null, undefined].includes(target)){
+                    target.destroy();
+                }
+            }
+
+            // Handle when a player collides with an advesary
+            function handleAdvesaryCollision(){
+                if (posToAdvesaries[[player.x, player.y]] !== undefined){
+                    posToAdvesaries[[player.x, player.y]].destroy();
+                }
+                posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
+                const [x, y] = [player.x, player.y];
+                setTimeout(() => {
+                    if (posToAdvesaries[[x, y]] !== undefined){
+                        game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                        posToAdvesaries[[x, y]].destroy();
+                        delete posToAdvesaries[[x, y]];
+                    }
+                }, 2000);
+                lose();
+            }
 
             // Add spawners for enemies and coins
-            game.addSpawnAnimation(wallTileslayer, player.x, player.y, advesariesPerSec, [ // Enemy spawner
-                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
-                (x, y) => {posToAdvesaries[[x, y]].destroy();},
-                (x, y) => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');},
-                (x, y) => {posToAdvesaries[[x, y]].destroy();},
-                (x, y) => {
-                    posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
-                    game.changeTileValue(wallTileslayer, x, y, advesary_value);
-                    setTimeout(() => {
-                        if ([x, y] in posToAdvesaries){ // May not be there due to immediate deletion after an encounter
-                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                            posToAdvesaries[[x, y]].destroy();
-                            //delete posToAdvesaries[[x, y]];
-                        }
-                    }, 3000);
-                }
-            ], 2);
-            
-            game.addSpawnAnimation(wallTileslayer, player.x, player.y, coinsPerSec, [ // Coin spawner
-                (x, y) => {
-                    if ([x, y] in posToCoins){
-                        return;
+            function addAdvesaryAnimation() {
+                return game.addSpawnAnimation(wallTileslayer, advesariesPerSec, [ 
+                    (x, y) => {
+                        safeSpawn(x, y, () => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');});
+                    },
+                    (x, y) => {safeDestroy(posToAdvesaries[[x, y]]);},
+                    (x, y) => {
+                        safeSpawn(x, y, () => {posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');});
+                    },
+                    (x, y) => {safeDestroy(posToAdvesaries[[x, y]]);},
+                    (x, y) => {
+                        safeSpawn(x, y, () => {
+                            posToAdvesaries[[x, y]] = game.addSprite(x, y, 'advesary');
+                            game.changeTileValue(wallTileslayer, x, y, advesary_value);
+                            if (listeq([player.x, player.y], [x, y])){ // Handle the case when the player overlaps the advesary at spawn point
+                                handleAdvesaryCollision();
+                            }
+                            setTimeout(() => {
+                                if (posToAdvesaries[[x, y]] !== undefined){ // May not be there due to immediate deletion after an encounter
+                                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                                    posToAdvesaries[[x, y]].destroy();
+                                    delete posToAdvesaries[[x, y]];
+                                }
+                            }, advesaryLifeSpan);
+                        });
                     }
-                    posToCoins[[x, y]] = game.addSprite(x, y, 'coin');
-                    game.changeTileValue(wallTileslayer, x, y, coin_value);
-                    setTimeout(() => {
-                        if ([x, y] in posToCoins){ // Could have already been deleted by player collection
-                            game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                            posToCoins[[x, y]].destroy();
-                            //delete posToCoins[[x, y]];
-                        }
-                    }, 10000);
-                }
-            ], 2);
+                ], 3);
+            } 
+            advesaryInterval = addAdvesaryAnimation();
+            
+            function addCoinAnimation(){
+                return game.addSpawnAnimation(wallTileslayer, coinsPerSec, [ // Coin spawner
+                    (x, y) => {
+                        safeSpawn(x, y, () => {
+                            posToCoins[[x, y]] = game.addSprite(x, y, 'coin');
+                            game.changeTileValue(wallTileslayer, x, y, coin_value);
+                            setTimeout(() => {
+                                if (posToCoins[[x, y]] !== undefined){ // Could have already been deleted by player collection
+                                    game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+                                    posToCoins[[x, y]].destroy();
+                                    delete posToCoins[[x, y]];
+                                }
+                            }, coinLifeSpan);
+                        });
+                    }
+                ], 2);
+            }
+            coinInterval = addCoinAnimation();
 
 
             // Utility functions
@@ -297,7 +355,7 @@ function run_game(
             }
 
             // Handle when the player loses
-            function lose(msg="Oops! You can't touch that! You lose :("){
+            function lose(msg="Oops! You can't touch that!"){
                 lost = true;
 
                 let lossMsg = game.add.text(
@@ -311,6 +369,7 @@ function run_game(
                 );
 
                 setTimeout(() => {
+                    lossMsg.destroy();
                     console.clear();
                     
                     for (let bodyCell of playerSnakeBody){
@@ -318,107 +377,124 @@ function run_game(
                     }
                     playerSnakeBody = [];
                     playerPoints = 0;
-                    if ([minPlayerXCentered, minPlayerYCentered] in posToAdvesaries){ // Ensure respawn point is free
+                    player_level = 1;
+                    fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
+                    game.setPlayerBounds();
+                    game.resetGameParams();
+                    if (posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]] !== undefined){ // Ensure respawn point is free
                         game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
                         posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
-                        //delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
+                        delete posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]]; 
                     }
-                    
-                    lossMsg.destroy();
-
                     player.x = minPlayerXCentered;
                     player.y = minPlayerYCentered;
+                    coinsRemaining.destroy()
+                    coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
+
+                    clearInterval(advesaryInterval);
+                    clearInterval(coinInterval);
+                    advesaryInterval = addAdvesaryAnimation();
+                    coinInterval = addCoinAnimation();
 
                     lost = false;
                 }, 1000);
             }
 
+            // Handle when a player collides with/collects a coin
+            function handleCoinCollision(){
+                // Handle body size/point increment
+                extendSnakeBody();
+                ++playerPoints;
+                coinsRemaining.destroy()
+                coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
+                if (posToCoins[[player.x, player.y]] !== undefined){ //Could have just been naturally deleted
+                    posToCoins[[player.x, player.y]].destroy();
+                    delete posToCoins[[player.x, player.y]];
+                }
+
+                // Change value back
+                game.changeTileValue(wallTileslayer, player.x, player.y, 0);
+
+                // Handle level transference once enough points are gathered
+                if (playerPoints >= pointsToAscend 
+                    || (player_level >= 4 && playerPoints % quad_size == 0)) //After max level, update db every now and then
+                {
+                    const origPlayerLevel = player_level;
+
+                    let ascensionMsg;
+                    if (origPlayerLevel < 4 ){ // No ascension at max level
+                        ascending = true;
+
+                        ascensionMsg = game.add.text(
+                            player.x, player.y, 
+                            "Congrats! You've unlocked the next level!", 
+                            {
+                                fontSize: '18px',
+                                fill: '#ffffff',
+                                backgroundColor: '#16df31'
+                            }
+                        );
+                    }
+
+                    setTimeout(() => {
+                        if (origPlayerLevel < 4 ){ // No ascension level increment at max level
+                            player_level = player_level + 1;
+                        }
+                        
+                        fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
+
+                        if (origPlayerLevel < 4 ){ // No ascension reset at max level
+                            ascensionMsg.destroy();
+
+                            for (let bodyCell of playerSnakeBody){
+                                bodyCell.destroy();
+                            }
+                            playerSnakeBody = [];
+                            playerPoints = 0;
+                            game.setPlayerBounds();
+                            game.resetGameParams();
+                            player.x = minPlayerXCentered;
+                            player.y = minPlayerYCentered;
+                            coinsRemaining.destroy()
+                            coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
+
+                            clearInterval(advesaryInterval);
+                            clearInterval(coinInterval);
+                            advesaryInterval = addAdvesaryAnimation();
+                            coinInterval = addCoinAnimation();
+                            
+                            ascending = false;
+                        }
+                    }, 1000);
+                }
+            }
+
+            // Look for times and handle when the player collides with their snake body
+            function handlePossibleSelfCollision(){
+                for (let i=0; i<playerSnakeBody.length; ++i){
+                    const bodyCell = playerSnakeBody[i];
+                    if (bodyCell.x === player.x && bodyCell.y === player.y){
+                        lost = true;
+                        break;
+                    }
+                }
+                if (lost){
+                    lose("Oops! You can't touch tail!");
+                }
+            }
+
             // Handle when a players' head moves to a new position
-            function handleNewPlayerHeadPosition(headTile){
+            function handlePossibleCollisions(headTile){
                 if (headTile === null){
                     return;
-                }
-                
-                if (headTile.index === wall_value){
+                }else if (headTile.index === wall_value){
                     lose();
                 }else if (headTile.index === advesary_value){
-                    if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
-                        posToAdvesaries[[player.x, player.y]].destroy();
-                    }
-                    posToAdvesaries[[player.x, player.y]] = game.addSprite(player.x, player.y, 'advesary_encounter');
-                    const [x, y] = [player.x, player.y];
-                    setTimeout(() => {
-                        game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-                        posToAdvesaries[[x, y]].destroy();
-                        //delete posToAdvesaries[[x, y]];
-                    }, 2000);
-                    lose();
+                    handleAdvesaryCollision();
                 }else if (headTile.index === coin_value){
-                    // Handle body size/point increment
-                    extendSnakeBody();
-                    ++playerPoints;
-                    if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
-                        posToCoins[[player.x, player.y]].destroy();
-                        //delete posToCoins[[player.x, player.y]];
-                    }
-
-                    // Change value back
-                    game.changeTileValue(wallTileslayer, player.x, player.y, 0);
-
-                    // Handle level transference once enough points are gathered
-                    if (playerPoints >= pointsToAscend){
-                        const origPlayerLevel = player_level;
-
-                        let ascensionMsg;
-                        if (origPlayerLevel < 4 ){ // No ascension at max level
-                            ascending = true;
-
-                            ascensionMsg = game.add.text(
-                                player.x, player.y, 
-                                "Congrats! You've unlocked the next level!", 
-                                {
-                                    fontSize: '18px',
-                                    fill: '#ffffff',
-                                    backgroundColor: '#16df31'
-                                }
-                            );
-                        }
-
-                        setTimeout(() => {
-                            if (origPlayerLevel < 4 ){ // No ascension level increment at max level
-                                player_level = player_level + 1;
-                            }
-                            
-                            fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
-
-                            if (origPlayerLevel < 4 ){ // No ascension reset at max level
-                                game.setPlayerBounds();
-                                ascensionMsg.destroy();
-                                game.setSpawnRates();
-
-                                for (let bodyCell of playerSnakeBody){
-                                    bodyCell.destroy();
-                                }
-                                playerSnakeBody = [];
-                                playerPoints = 0;
-                                player.x = minPlayerXCentered;
-                                player.y = minPlayerYCentered;
-                                
-                                ascending = false;
-                            }
-                        }, 1000);
-                    }
-                }else{
-                    for (let i=0; i<playerSnakeBody.length; ++i){
-                        const bodyCell = playerSnakeBody[i];
-                        if (bodyCell.x === player.x && bodyCell.y === player.y){
-                            lost = true;
-                            break;
-                        }
-                    }
-                    if (lost){
-                        lose("Oops! You can't touch yourself! You lose :(");
-                    }
+                    handleCoinCollision();
+                }else{// Self collision
+                    handlePossibleSelfCollision();
                 }
             }
 
@@ -440,9 +516,10 @@ function run_game(
                     if (leftInBounds(player.x)){
                         player.x = calcLeft(player.x);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-
-                    handleNewPlayerHeadPosition(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
+                    handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
 
@@ -454,9 +531,10 @@ function run_game(
                     if (rightInBounds(player.x)){
                         player.x = calcRight(player.x);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
-                    handleNewPlayerHeadPosition(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
+                    handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
 
@@ -468,9 +546,10 @@ function run_game(
                     if (upInBounds(player.y)){
                         player.y = calcUp(player.y);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
-                    handleNewPlayerHeadPosition(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
+                    handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
 
@@ -482,9 +561,10 @@ function run_game(
                     if (downInBounds(player.y)){
                         player.y = calcDown(player.y);
                         moveSnakeBody(oldPos);
+                        coinsRemaining.destroy()
+                        coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                     }
-                    
-                    handleNewPlayerHeadPosition(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
+                    handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                 }
             });
 

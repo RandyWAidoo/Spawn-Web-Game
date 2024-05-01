@@ -16,7 +16,12 @@ cursor.execute(
     CREATE TABLE Users
     (id TEXT PRIMARY KEY, 
     username TEXT UNIQUE, pw_hash TEXT, 
-    points INTEGER DEFAULT 0, level INTEGER DEFAULT 1)
+    points INTEGER DEFAULT 0, level INTEGER DEFAULT 1,
+    high_score INTEGER DEFAULT 0)
     """
 )
 conn.commit()
+
+map_dir = os.path.join(proj_dir, 'static', "maps")
+if not os.path.exists(map_dir):
+    os.mkdir(map_dir)
