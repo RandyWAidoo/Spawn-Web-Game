@@ -7,8 +7,12 @@ var username = null;
 var game_id = null;
 var playerSnakeBody = [];
 var player = null;
-var player_level = null
+var player_level = null;
+var quad_size = null
 
+//Random movement --> level 4
+//Auto movement --> level2+
+//Sound effects for powerups
 var mapSize = null;
 const cellSizeX = 32;
 const cellSizeY = 32;
@@ -54,8 +58,11 @@ var coinLifeSpan;
 
 var bCoinInterval, fCoinInterval, sCoinInterval, rCoinInterval;
 
-
 var movements = ['keydown-LEFT', 'keydown-RIGHT', 'keydown-UP', 'keydown-DOWN']
+
+var move = 0; //Set this to 0 at all times if the level is greater than 1
+
+var instructionMsg;
 
 function randInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
@@ -202,8 +209,6 @@ function lose(msg="Oops! You can't touch that! You lose :("){
 
         player.x = minPlayerXCentered;
         player.y = minPlayerYCentered;
-        coinsRemaining.destroy();
-        coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
         lost = false;
     }, 1000);
@@ -223,7 +228,7 @@ function handleCoinCollision(val){
         }
     }
     
-    coinsRemaining.destroy();
+    coinsRemaining.destroy()
     coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
     if (posToCoins[[player.x, player.y]] !== undefined){ //Could have just been naturally deleted
         posToCoins[[player.x, player.y]].destroy();
@@ -245,7 +250,7 @@ function handleCoinCollision(val){
 
             ascensionMsg = entire_game.add.text(
                 player.x, player.y, 
-                "Level Up!", 
+                "Congrats! You've unlocked the next level!", 
                 {
                     fontSize: '18px',
                     fill: '#ffffff',
@@ -324,7 +329,6 @@ function handlePossibleCollisions(headTile){
     }else if (headTile.index === coin_value || headTile.index === bcoin_value){
         handleCoinCollision(headTile.index);
     }else if(headTile.index === fcoin_value || headTile.index === scoin_value || headTile.index === rcoin_value){
-        console.log("Run");
         handlePowerUpCollision(headTile.index);
     }
     else{// Self collision
@@ -370,6 +374,100 @@ function handlePowerUpCollision(val){
     entire_game.changeTileValue(wallTileslayer, player.x, player.y, 0);
 
 }
+
+// Handle when a players' head moves to a new position
+function handleNewPlayerHeadPosition(headTile){
+    if (headTile === null){
+        return;
+    }
+    
+    if (headTile.index === wall_value){
+        lose();
+    }else if (headTile.index === advesary_value){
+        if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
+            posToAdvesaries[[player.x, player.y]].destroy();
+        }
+        posToAdvesaries[[player.x, player.y]] = entire_game.addSprite(player.x, player.y, 'advesary_encounter');
+        const [x, y] = [player.x, player.y];
+        setTimeout(() => {
+            entire_game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
+            posToAdvesaries[[x, y]].destroy();
+            //delete posToAdvesaries[[x, y]];
+        }, 2000);
+        lose();
+    }else if (headTile.index === coin_value){
+        // Handle body size/point increment
+        extendSnakeBody();
+        ++playerPoints;
+        if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
+            posToCoins[[player.x, player.y]].destroy();
+            //delete posToCoins[[player.x, player.y]];
+        }
+
+        // Change value back
+        entire_game.changeTileValue(wallTileslayer, player.x, player.y, 0);
+
+        // Handle level transference once enough points are gathered
+        if (playerPoints >= pointsToAscend){
+            const origPlayerLevel = player_level;
+
+            let ascensionMsg;
+            if (origPlayerLevel < 4){ // No ascension at max level
+                ascending = true;
+
+                ascensionMsg = entire_game.add.text(
+                    player.x, player.y, 
+                    "Congrats! You've unlocked the next level!", 
+                    {
+                        fontSize: '18px',
+                        fill: '#ffffff',
+                        backgroundColor: '#16df31'
+                    }
+                );
+            }
+
+            setTimeout(() => {
+                if (origPlayerLevel < 4 ){ // No ascension level increment at max level
+                    player_level = player_level + 1;
+                }
+                
+                fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`); 
+                //get leaderboard 
+
+                if (origPlayerLevel < 4 ){ // No ascension reset at max level
+                    entire_game.setPlayerBounds();
+                    ascensionMsg.destroy();
+                    entire_game.setSpawnRates();
+
+                    for (let bodyCell of playerSnakeBody){
+                        bodyCell.destroy();
+                    }
+                    playerSnakeBody = [];
+                    playerPoints = 0;
+                    playerDir = "";
+                    wait_time = 4;
+                    movements = ['keydown-LEFT', 'keydown-RIGHT', 'keydown-UP', 'keydown-DOWN'];
+                    player.x = minPlayerXCentered;
+                    player.y = minPlayerYCentered;
+                    
+                    ascending = false;
+                }
+            }, 1000);
+        }
+    }else{
+        for (let i=0; i<playerSnakeBody.length; ++i){
+            const bodyCell = playerSnakeBody[i];
+            if (bodyCell.x === player.x && bodyCell.y === player.y){
+                lost = true;
+                break;
+            }
+        }
+        if (lost){
+            lose("Oops! You can't touch yourself! You lose :(");
+        }
+    }
+}
+
 
 // Move the snake body to follow the players' head
 function moveSnakeBody(oldPos){
@@ -538,14 +636,17 @@ function addRandomCoinAnimation(){
 }
 
 function run_game(
-    username, game_id, quad_size, p_level, 
+    uname, g_id, q_size, p_level, 
     wall_image_path, character_image_path, character_head_image_path,
     coin_image_path, advesary_image_path, advesary_encounter_image_path,
     map_path, sound_path, bCoin_image_path, fCoin_image_path, sCoin_image_path, rCoin_image_path,
     wall_value=1
 ){
+    
+    username = uname;
+    game_id = g_id;
     // Parse string parameters
-    quad_size = JSON.parse(quad_size);
+    quad_size = JSON.parse(q_size);
     player_level = JSON.parse(p_level);
 
     // Set up some universal variables/constants
@@ -609,17 +710,27 @@ function run_game(
             coinsPerSec = player_level / 2;
             coinLifeSpan = 10000;
             
-            pointsToAscend = 15 * player_level;
+            pointsToAscend = 1 * player_level;
 
             fastCoinLifeSpan = 10000;
             slowCoinLifeSpan = 10000;
             blueCoinLifeSpan = 50000;
             randomCoinLifeSpan = 10000;
+            
+            blueCoinsPerSec = player_level / 100;
 
-            fastCoinsPerSec = player_level / 12;
-            slowCoinsPerSec = player_level / 17;
-            blueCoinsPerSec = player_level / 37;
-            randomCoinsPerSec = player_level / 26;
+            if(player_level > 1){
+                fastCoinsPerSec = player_level / 24;
+                slowCoinsPerSec = player_level / 12;
+            }else{
+                fastCoinsPerSec = player_level / 9999999999999;
+                slowCoinsPerSec = player_level / 9999999999999;
+            } 
+            if(player_level > 3){
+                randomCoinsPerSec = player_level / 50;
+            }else{
+                randomCoinsPerSec = player_level / 9999999999999;
+            }
 //var fastCoinInteveral, slowCoinInterval, blueCoinInterval, randomCoinInterval;
         }
 
@@ -730,7 +841,12 @@ function run_game(
             sCoinInterval = addSlowCoinAnimation();
             rCoinInterval = addRandomCoinAnimation();
             
-           
+            let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
+            instructionMsg = entire_game.add.text(700, minPlayerYCentered + 750, instructions, {
+                fontSize: '18px',
+                fill: '#ffffff',
+                backgroundColor: '#000000'
+            });
 
             console.log("Game started");
         }
@@ -738,40 +854,47 @@ function run_game(
         update(){
             
             let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
+            instructionMsg.setText(instructions);
+            console.log(movements[0] + "\n" + movements[1] + "\n" + movements [2] + "\n" + movements[3]);
+            console.log(instructions);
             //Math.floor(minPlayerXCentered + characterSizeX)
-            entire_game.add.text(700, minPlayerYCentered + 750, instructions, {
-                fontSize: '18px',
-                fill: '#ffffff',
-                backgroundColor: '#000000'
-            });
+            
 
              // Handling going Left
             entire_game.input.keyboard.on(movements[0], function left(event)
             {
-                console.log(movements[0])
+                //console.log(movements[0])
                 playerDir = "Left";
+                move = 1;
             });
 
             // Handling going Right
             entire_game.input.keyboard.on(movements[1], function right(event)
             {
-                console.log(movements[1])
+                //console.log(movements[1])
                 playerDir = "Right";
+                move = 1;
             });
  
             // Handling going Up
             entire_game.input.keyboard.on(movements[2], function up(event)
             {
-                console.log(movements[2])
+                //console.log(movements[2])
                 playerDir = "Up";
+                move = 1;
             });
  
             // Handling going Down
             entire_game.input.keyboard.on(movements[3], function down(event)
             {
-                console.log(movements[3])
+                //console.log(movements[3])
                 playerDir = "Down";
+                move = 1;
             });
+
+            if(player_level > 1){
+                move = 1; //Automatic movement
+            }
 
             if(wait_before_movement != 0){
                 wait_before_movement--;
@@ -780,7 +903,7 @@ function run_game(
                 switch(playerDir){
                     case "Up":
                         //console.log("Run5");
-                        if (!ascending && !lost){
+                        if (!ascending && !lost && move == 1){
                             let oldPos = [player.x, player.y];
                             if (upInBounds(player.y)){
                                 player.y = calcUp(player.y);
@@ -790,11 +913,12 @@ function run_game(
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                             wait_before_movement = wait_time;
+                            move = 0;   
                         }
                     break;
                     case "Left":
                         //console.log("Run6");
-                        if (!ascending && !lost){
+                        if (!ascending && !lost && move == 1){
                             let oldPos = [player.x, player.y];
                             if (leftInBounds(player.x)){
                                 player.x = calcLeft(player.x);
@@ -804,11 +928,12 @@ function run_game(
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                             wait_before_movement = wait_time;
+                            move = 0;
                         }
                         break;
                     case "Right":
                         //console.log("Run7");
-                        if (!ascending && !lost){
+                        if (!ascending && !lost && move == 1){
                             let oldPos = [player.x, player.y];
                             if (rightInBounds(player.x)){
                                 player.x = calcRight(player.x);
@@ -818,11 +943,12 @@ function run_game(
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                             wait_before_movement = wait_time;
+                            move = 0;
                         }
                         break;
                     case "Down":
                         //console.log("Run8");
-                        if (!ascending && !lost){
+                        if (!ascending && !lost && move == 1){
                             let oldPos = [player.x, player.y];
                             if (downInBounds(player.y)){
                                 player.y = calcDown(player.y);
@@ -832,6 +958,7 @@ function run_game(
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
                             wait_before_movement = wait_time;
+                            move = 0;
                         }
                         break;
                     default:
@@ -842,7 +969,11 @@ function run_game(
                 }
             }
 
+            
+
         }
+
+        
     }
 
     const config = {
