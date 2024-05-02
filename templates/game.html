@@ -1,7 +1,43 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <nav>
+        <div>
+            <button onclick="window.location.href='/home';">Home</button>
+            <button onclick="window.location.href='/login';">Restart</button>
+            <button onclick="window.location.href='/leaderboard';">Leaderboard</button>
+            <button onclick="window.location.href='/rules';">Rules</button>
+        </div>
+    </nav>
+    <style>
 
+nav div {
+        text-align: center; /* Center-align the div container within the nav */
+    }
+
+    button {
+        width: 165px;
+        background-color: #061406; /* Green */
+        border: none;
+        color: white;
+        padding: 15px 32px;
+        text-align: center;
+        display: inline-block;
+        font-size: 16px;
+        margin: 10px 2px;
+        cursor: pointer;
+        border-radius: 5px;
+        box-shadow: 0 5px #666;
+        transition: all 0.3s ease;
+    }
+
+    button:hover {
+        background-color: #1d2c1e;
+        box-shadow: 0 5px #333;
+        transform: translateY(-5px);
+    }
+    </style>
+    
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
