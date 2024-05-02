@@ -83,7 +83,7 @@ def leaderboard():
     conn, cursor, Users_cols = open_db()
     
     try:
-        query = "SELECT username, points FROM Users ORDER BY points DESC"
+        query = "SELECT username, high_score FROM Users ORDER BY points DESC"
         cursor.execute(query)
         leaderboard_data = cursor.fetchall()
     finally:
@@ -346,19 +346,6 @@ def game(username, game_id):
     
     conn.close()
     return redirect(url_for('generate_static', username=session["username"]))
-
-
-# Leaderboard
-@app.route("/leaderboard/")
-def leaderboard():
-    conn, cursor, Users_cols = open_db()
-    try:
-        query = "SELECT username, points FROM Users ORDER BY points DESC"
-        cursor.execute(query)
-        leaderboard_data = cursor.fetchall()
-    finally:
-        conn.close()  # Ensure the connection is closed even if an error occurs
-    return render_template("leaderboard.html", users=leaderboard_data)
 
 
 #Error handlers
