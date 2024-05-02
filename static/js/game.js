@@ -598,12 +598,15 @@ function addRandomCoinAnimation(){
 }
 
 function run_game(
-    _username, _game_id, q_size, p_level, 
+    uname, g_id, q_size, p_level, 
     wall_image_path, character_image_path, character_head_image_path,
     coin_image_path, advesary_image_path, advesary_encounter_image_path,
     map_path, sound_path, bCoin_image_path, fCoin_image_path, sCoin_image_path, rCoin_image_path,
     wall_value=1
 ){
+    
+    username = uname;
+    game_id = g_id;
     // Parse string parameters
     quad_size = JSON.parse(q_size);
     player_level = JSON.parse(p_level);
