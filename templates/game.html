@@ -10,32 +10,31 @@
         </div>
     </nav>
     <style>
+        nav div {
+            text-align: center; /* Center-align the div container within the nav */
+        }
 
-nav div {
-        text-align: center; /* Center-align the div container within the nav */
-    }
+        button {
+            width: 165px;
+            background-color: #061406; /* Green */
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 5px #666;
+            transition: all 0.3s ease;
+        }
 
-    button {
-        width: 165px;
-        background-color: #061406; /* Green */
-        border: none;
-        color: white;
-        padding: 15px 32px;
-        text-align: center;
-        display: inline-block;
-        font-size: 16px;
-        margin: 10px 2px;
-        cursor: pointer;
-        border-radius: 5px;
-        box-shadow: 0 5px #666;
-        transition: all 0.3s ease;
-    }
-
-    button:hover {
-        background-color: #1d2c1e;
-        box-shadow: 0 5px #333;
-        transform: translateY(-5px);
-    }
+        button:hover {
+            background-color: #1d2c1e;
+            box-shadow: 0 5px #333;
+            transform: translateY(-5px);
+        }
     </style>
     
     <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">

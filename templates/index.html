@@ -7,66 +7,66 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
-@keyframes backgroundAnimation {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
+        @keyframes backgroundAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
 
-body {
-    font-family: 'Press Start 2P', cursive;
-    background: linear-gradient(270deg, #7575db, #000000, #7575db);
-    background-size: 600% 600%;
-    animation: backgroundAnimation 10s ease infinite;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-}
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background: linear-gradient(270deg, #7575db, #000000, #7575db);
+            background-size: 600% 600%;
+            animation: backgroundAnimation 10s ease infinite;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
 
-.title-container {
-    text-align: center;
-    background: rgba(255, 255, 255, 0.8);
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    backdrop-filter: blur(5px);
-}
+        .title-container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            backdrop-filter: blur(5px);
+        }
 
-h1 {
-    font-size: 48px;
-    color: #ff6347; /* Tomato color for game vibe */
-    text-shadow: 2px 2px #000000;
-    animation: glow 1.5s ease-in-out infinite alternate;
-}
+        h1 {
+            font-size: 48px;
+            color: #ff6347; /* Tomato color for game vibe */
+            text-shadow: 2px 2px #000000;
+            animation: glow 1.5s ease-in-out infinite alternate;
+        }
 
-@keyframes glow {
-    from { text-shadow: 0 0 20px #ff6347; }
-    to { text-shadow: 0 0 40px #ff4500; }
-}
+        @keyframes glow {
+            from { text-shadow: 0 0 20px #ff6347; }
+            to { text-shadow: 0 0 40px #ff4500; }
+        }
 
-button {
-    width: 165px;
-    background-color: #4CAF50; /* Green */
-    border: none;
-    color: white;
-    padding: 15px 32px;
-    text-align: center;
-    display: inline-block;
-    font-size: 16px;
-    margin: 10px 2px;
-    cursor: pointer;
-    border-radius: 5px;
-    box-shadow: 0 5px #666;
-    transition: all 0.3s ease;
-}
+        button {
+            width: 165px;
+            background-color: #4CAF50; /* Green */
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 2px;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 5px #666;
+            transition: all 0.3s ease;
+        }
 
-button:hover {
-    background-color: #3e8e41;
-    box-shadow: 0 5px #333;
-    transform: translateY(-5px);
-}
+        button:hover {
+            background-color: #3e8e41;
+            box-shadow: 0 5px #333;
+            transform: translateY(-5px);
+        }
 
     </style>
 </head>

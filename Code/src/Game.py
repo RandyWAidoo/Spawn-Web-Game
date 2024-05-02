@@ -83,7 +83,7 @@ def leaderboard():
     conn, cursor, Users_cols = open_db()
     
     try:
-        query = "SELECT username, high_score FROM Users ORDER BY points DESC"
+        query = "SELECT username, high_score FROM Users ORDER BY high_score DESC"
         cursor.execute(query)
         leaderboard_data = cursor.fetchall()
     finally:
@@ -250,6 +250,7 @@ def update_player_stats(username, game_id, points, level):
 
     conn, cursor, Users_cols = open_db()
 
+    print("Updating")
     points = int(points)
     level = int(level)
     with conn:

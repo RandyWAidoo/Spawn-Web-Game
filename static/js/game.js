@@ -178,7 +178,7 @@ function extendSnakeBody(){
 // Send out player stats
 function sendPlayerStats(){
     fetch(
-        `/${username}/game/${game_id}/update_player_stats/${playerPoints*player_level}/${player_level}/`, 
+        `/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}/`, 
         {method: "POST"}
     );
     
@@ -218,7 +218,6 @@ function sendPlayerStats(){
             console.log(`Error on POST to ${url}:`, reason);
         });
     });
-
 }
 
 // Handle when the player loses
@@ -273,12 +272,12 @@ function handleCoinCollision(val){
     
     if(val == 3){
         extendSnakeBody();
-        ++playerPoints;
+        playerPoints += player_level;
         sendPlayerStats();
     }else{
         for(let x = 0; x < 5; x++){
             extendSnakeBody();
-            ++playerPoints;
+            playerPoints += player_level;
             sendPlayerStats();
         }
     }
@@ -318,6 +317,8 @@ function handleCoinCollision(val){
             if (origPlayerLevel < 4 ){ // No ascension level increment at max level
                 player_level = player_level + 1;
             }
+
+            sendPlayerStats();
 
             if (origPlayerLevel < 4 ){ // No ascension reset at max level
                 ascensionMsg.destroy();
@@ -607,13 +608,10 @@ function run_game(
     
     username = uname;
     game_id = g_id;
+
     // Parse string parameters
     quad_size = JSON.parse(q_size);
     player_level = JSON.parse(p_level);
-
-    // Assign relevant global variables
-    username = _username;
-    game_id = _game_id;
 
     // Set up some universal variables/constants
     mapSize = quad_size * 2 + 1;
@@ -676,7 +674,7 @@ function run_game(
             coinsPerSec = player_level / 2;
             coinLifeSpan = 10000;
             
-            pointsToAscend = 1 * player_level;
+            pointsToAscend = 10 * player_level;
 
             fastCoinLifeSpan = 10000;
             slowCoinLifeSpan = 10000;
