@@ -80,13 +80,21 @@ def rules():
 # Leaderboard
 @app.route("/leaderboard/")
 def leaderboard():
-    return render_template("leaderboard.html")
+    conn, cursor, Users_cols = open_db()
+    
+    try:
+        query = "SELECT username, points FROM Users ORDER BY points DESC"
+        cursor.execute(query)
+        leaderboard_data = cursor.fetchall()
+    finally:
+        conn.close()  # Ensure the connection is closed even if an error occurs
+    return render_template("leaderboard.html", users=leaderboard_data)
 
 # Home
 @app.route("/", methods=['GET', 'POST'])
 @app.route("/home/", methods=['GET', 'POST'])
-def title_page():
-    return render_template("title_page.html")
+def index():
+    return render_template("index.html")
 
 # Authentication
 @app.route('/login/', methods=['GET', 'POST'])
@@ -128,7 +136,7 @@ def signup():
         confirm_pw = request.form["confirm_password"]
 
         pw_confirmed = (pw == confirm_pw)
-        username_valid = (','  not in username)
+        username_valid = (','  not in username and '/' not in username)
         with conn:
             username_unique = (not cursor.execute(
                 "SELECT 1 FROM Users WHERE username = ?", 
@@ -145,12 +153,11 @@ def signup():
             pw_hash = bcrypt.hashpw(pw.encode(), salt=bcrypt.gensalt())
             with conn:
                 cursor.execute(
-                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO Users VALUES(?, ?, ?, ?, ?)",
                     (
                         uuid.uuid4().hex,
                         username,
                         pw_hash.decode(),
-                        0, 
                         1, 
                         0
                     )
@@ -165,6 +172,17 @@ def signup():
 
 # Game
 #  API urls
+@app.route("/health/", methods=["GET", "POST"])
+def health():
+    data = request.get_data()
+    try:
+        print("utf-8 decode:")
+        print(data.decode())
+    except Exception as err:
+        print("Decode error occurred\nPrinting as bytes")
+        print(data)
+    return ""
+
 @app.get("/<username>/game/<game_id>/get_rank/<collisions>/")
 @app.get("/<username>/game/<game_id>/get_rank/")
 def get_rank(username, game_id, collisions="False"):
@@ -218,14 +236,14 @@ def get_leaderboard(username, game_id, limit=5, offset=0, collisions="False"):
     """
     cursor.executescript(query)
     conn.commit()
-    data = cursor.execute("SELECT * FROM users_to_ranks_to_scores").fetchall()
+    data: list[tuple[str, int, int]] = cursor.execute("SELECT * FROM users_to_ranks_to_scores").fetchall()
     cursor.execute("DROP TABLE users_to_ranks_to_scores")
     conn.commit()
 
     conn.close()
     return data
 
-@app.get("/<username>/game/<game_id>/update_player_stats/<points>/<level>/")
+@app.post("/<username>/game/<game_id>/update_player_stats/<points>/<level>/")
 def update_player_stats(username, game_id, points, level):
     if "username" not in session or session["username"] != username:
         return redirect(url_for("login"))
@@ -238,8 +256,7 @@ def update_player_stats(username, game_id, points, level):
         cursor.execute(
             """
             UPDATE Users 
-            SET points = ?,  
-            high_score = 
+            SET high_score = 
                 CASE
                     WHEN high_score < ? THEN ?
                     ELSE high_score
@@ -247,7 +264,7 @@ def update_player_stats(username, game_id, points, level):
             level = ?
             WHERE username = ?
             """,
-            (points, points, points, level, username)
+            (points, points, level, username)
         )
         conn.commit()
 

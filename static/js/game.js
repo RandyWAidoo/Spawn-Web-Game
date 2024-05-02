@@ -1,3 +1,4 @@
+let debug = true;
 var playerDir = "";
 var lost = false;
 var ascending = false;
@@ -174,6 +175,52 @@ function extendSnakeBody(){
     playerSnakeBody.push(newBodyCell);
 }
 
+// Send out player stats
+function sendPlayerStats(){
+    fetch(
+        `/${username}/game/${game_id}/update_player_stats/${playerPoints*player_level}/${player_level}/`, 
+        {method: "POST"}
+    );
+    
+    fetch(`/${username}/game/${game_id}/get_leaderboard/5/0/`)
+    .then((response) => {
+        return response.json();
+    })
+    .then((records) => {
+        // Build data to send
+        data = {
+            "data": [
+                {
+                    "Group": "Calico",
+                    "Title": "Top 5 Scores"
+                }
+            ]
+        };
+        for (let i=0; i<5; ++i){
+            if (i >= records.length){
+                data["data"][0][`N/A ${i + 1}`] = "N/A";
+            }else{data["data"][0][records[i][0]] = records[i][1];}
+        }
+        console.log("Sending:", data, "...");
+
+        // Send and handle the reponse to the data
+        let url = debug 
+                  ? `/health/`
+                  : "https://eope3o6d7z7e2cc.m.pipedream.net"
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .catch((reason) => {
+            console.log(`Error on POST to ${url}:`, reason);
+        });
+    });
+
+}
+
 // Handle when the player loses
 function lose(msg="Oops! You can't touch that! You lose :("){
     lost = true;
@@ -196,9 +243,13 @@ function lose(msg="Oops! You can't touch that! You lose :("){
         }
         playerSnakeBody = [];
         playerPoints = 0;
+        player_level = 1;
+        sendPlayerStats();
         playerDir = "";
         wait_time = 4;
         movements = ['keydown-LEFT', 'keydown-RIGHT', 'keydown-UP', 'keydown-DOWN']
+        entire_game.resetGameParams();
+        entire_game.setPlayerBounds();
         if ([minPlayerXCentered, minPlayerYCentered] in posToAdvesaries){ // Ensure respawn point is free
             entire_game.changeTileValue(wallTileslayer, minPlayerXCentered, minPlayerYCentered, 0); // Change value back
             posToAdvesaries[[minPlayerXCentered, minPlayerYCentered]].destroy();
@@ -207,8 +258,10 @@ function lose(msg="Oops! You can't touch that! You lose :("){
         
         lossMsg.destroy();
 
+        coinsRemaining.destroy();
         player.x = minPlayerXCentered;
         player.y = minPlayerYCentered;
+        coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
         lost = false;
     }, 1000);
@@ -221,10 +274,12 @@ function handleCoinCollision(val){
     if(val == 3){
         extendSnakeBody();
         ++playerPoints;
+        sendPlayerStats();
     }else{
         for(let x = 0; x < 5; x++){
             extendSnakeBody();
             ++playerPoints;
+            sendPlayerStats();
         }
     }
     
@@ -263,8 +318,6 @@ function handleCoinCollision(val){
             if (origPlayerLevel < 4 ){ // No ascension level increment at max level
                 player_level = player_level + 1;
             }
-            
-            fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`);
 
             if (origPlayerLevel < 4 ){ // No ascension reset at max level
                 ascensionMsg.destroy();
@@ -281,7 +334,7 @@ function handleCoinCollision(val){
                 entire_game.resetGameParams();
                 player.x = minPlayerXCentered;
                 player.y = minPlayerYCentered;
-                coinsRemaining.destroy()
+                coinsRemaining.destroy();
                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
                 clearInterval(advesaryInterval);
@@ -375,100 +428,6 @@ function handlePowerUpCollision(val){
 
 }
 
-// Handle when a players' head moves to a new position
-function handleNewPlayerHeadPosition(headTile){
-    if (headTile === null){
-        return;
-    }
-    
-    if (headTile.index === wall_value){
-        lose();
-    }else if (headTile.index === advesary_value){
-        if ([player.x, player.y] in posToAdvesaries){ // Could have been just natually deleted
-            posToAdvesaries[[player.x, player.y]].destroy();
-        }
-        posToAdvesaries[[player.x, player.y]] = entire_game.addSprite(player.x, player.y, 'advesary_encounter');
-        const [x, y] = [player.x, player.y];
-        setTimeout(() => {
-            entire_game.changeTileValue(wallTileslayer, x, y, 0); // Change value back
-            posToAdvesaries[[x, y]].destroy();
-            //delete posToAdvesaries[[x, y]];
-        }, 2000);
-        lose();
-    }else if (headTile.index === coin_value){
-        // Handle body size/point increment
-        extendSnakeBody();
-        ++playerPoints;
-        if ([player.x, player.y] in posToCoins){ //Could have just been naturally deleted
-            posToCoins[[player.x, player.y]].destroy();
-            //delete posToCoins[[player.x, player.y]];
-        }
-
-        // Change value back
-        entire_game.changeTileValue(wallTileslayer, player.x, player.y, 0);
-
-        // Handle level transference once enough points are gathered
-        if (playerPoints >= pointsToAscend){
-            const origPlayerLevel = player_level;
-
-            let ascensionMsg;
-            if (origPlayerLevel < 4){ // No ascension at max level
-                ascending = true;
-
-                ascensionMsg = entire_game.add.text(
-                    player.x, player.y, 
-                    "Congrats! You've unlocked the next level!", 
-                    {
-                        fontSize: '18px',
-                        fill: '#ffffff',
-                        backgroundColor: '#16df31'
-                    }
-                );
-            }
-
-            setTimeout(() => {
-                if (origPlayerLevel < 4 ){ // No ascension level increment at max level
-                    player_level = player_level + 1;
-                }
-                
-                fetch(`/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}`); 
-                //get leaderboard 
-
-                if (origPlayerLevel < 4 ){ // No ascension reset at max level
-                    entire_game.setPlayerBounds();
-                    ascensionMsg.destroy();
-                    entire_game.setSpawnRates();
-
-                    for (let bodyCell of playerSnakeBody){
-                        bodyCell.destroy();
-                    }
-                    playerSnakeBody = [];
-                    playerPoints = 0;
-                    playerDir = "";
-                    wait_time = 4;
-                    movements = ['keydown-LEFT', 'keydown-RIGHT', 'keydown-UP', 'keydown-DOWN'];
-                    player.x = minPlayerXCentered;
-                    player.y = minPlayerYCentered;
-                    
-                    ascending = false;
-                }
-            }, 1000);
-        }
-    }else{
-        for (let i=0; i<playerSnakeBody.length; ++i){
-            const bodyCell = playerSnakeBody[i];
-            if (bodyCell.x === player.x && bodyCell.y === player.y){
-                lost = true;
-                break;
-            }
-        }
-        if (lost){
-            lose("Oops! You can't touch yourself! You lose :(");
-        }
-    }
-}
-
-
 // Move the snake body to follow the players' head
 function moveSnakeBody(oldPos){
     for (let i=0; i<playerSnakeBody.length; ++i){
@@ -558,6 +517,9 @@ function addCoinAnimation(){
                         delete posToCoins[[x, y]];
                     }
                 }, coinLifeSpan);
+            }, 
+            () => {
+                return !listeq([player.x, player.y], [x, y]);
             });
         }
     ], 2);
@@ -636,7 +598,7 @@ function addRandomCoinAnimation(){
 }
 
 function run_game(
-    username, game_id, q_size, p_level, 
+    _username, _game_id, q_size, p_level, 
     wall_image_path, character_image_path, character_head_image_path,
     coin_image_path, advesary_image_path, advesary_encounter_image_path,
     map_path, sound_path, bCoin_image_path, fCoin_image_path, sCoin_image_path, rCoin_image_path,
@@ -645,6 +607,10 @@ function run_game(
     // Parse string parameters
     quad_size = JSON.parse(q_size);
     player_level = JSON.parse(p_level);
+
+    // Assign relevant global variables
+    username = _username;
+    game_id = _game_id;
 
     // Set up some universal variables/constants
     mapSize = quad_size * 2 + 1;
@@ -824,6 +790,12 @@ function run_game(
             wallTileset = map.addTilesetImage('walls', null, cellSizeX, cellSizeY, 1, 2);
             wallTileslayer = map.createLayer(0, wallTileset, 0, 0);
             player = game.addSprite(minPlayerXCentered, minPlayerYCentered, 'character_head');
+            let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
+            instructionMsg = entire_game.add.text(700, minPlayerYCentered + 750, instructions, {
+                fontSize: '18px',
+                fill: '#ffffff',
+                backgroundColor: '#000000'
+            });
             
             //let playerSnakeBody = [];
             game.cameras.main.startFollow(player);
@@ -837,13 +809,6 @@ function run_game(
             fCoinInterval = addFastCoinAnimation();
             sCoinInterval = addSlowCoinAnimation();
             rCoinInterval = addRandomCoinAnimation();
-            
-            let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
-            instructionMsg = entire_game.add.text(700, minPlayerYCentered + 750, instructions, {
-                fontSize: '18px',
-                fill: '#ffffff',
-                backgroundColor: '#000000'
-            });
 
             console.log("Game started");
         }
@@ -852,10 +817,8 @@ function run_game(
             
             let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
             instructionMsg.setText(instructions);
-            console.log(movements[0] + "\n" + movements[1] + "\n" + movements [2] + "\n" + movements[3]);
-            console.log(instructions);
-            //Math.floor(minPlayerXCentered + characterSizeX)
-            
+            //console.log(movements[0] + "\n" + movements[1] + "\n" + movements [2] + "\n" + movements[3]);
+            //console.log(instructions);
 
              // Handling going Left
             entire_game.input.keyboard.on(movements[0], function left(event)

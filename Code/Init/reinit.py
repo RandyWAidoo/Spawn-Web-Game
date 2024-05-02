@@ -8,16 +8,13 @@ conn = sqlite3.connect(db_path)
 cursor = conn.cursor()
 
 cursor.execute('DROP TABLE IF EXISTS Users')
-cursor.execute('DROP TABLE IF EXISTS Games')
-cursor.execute('DROP TABLE IF EXISTS max_ppq')
 
 cursor.execute(
     """
     CREATE TABLE Users
     (id TEXT PRIMARY KEY, 
     username TEXT UNIQUE, pw_hash TEXT, 
-    points INTEGER DEFAULT 0, level INTEGER DEFAULT 1,
-    high_score INTEGER DEFAULT 0)
+    level INTEGER DEFAULT 1, high_score INTEGER DEFAULT 0)
     """
 )
 conn.commit()
