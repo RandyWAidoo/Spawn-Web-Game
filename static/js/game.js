@@ -1,4 +1,4 @@
-let debug = true;
+let debug = false;
 var playerDir = "";
 var lost = false;
 var ascending = false;
@@ -51,6 +51,7 @@ const rcoin_value = 8;
 
 var wait_before_movement = 10;
 var wait_time = 4;
+var wait_multiplier = 1.5;
 var entire_game = null;
 
 var advesaryInterval, coinInterval;
@@ -178,7 +179,7 @@ function extendSnakeBody(){
 // Send out player stats
 function sendPlayerStats(){
     fetch(
-        `/${username}/game/${game_id}/update_player_stats/${playerPoints}/${player_level}/`, 
+        `/${username}/game/${game_id}/update_player_stats/${playerPoints*player_level}/${player_level}/`, 
         {method: "POST"}
     );
     
@@ -220,6 +221,22 @@ function sendPlayerStats(){
     });
 }
 
+function resetIntervals(){
+    clearInterval(advesaryInterval);
+    clearInterval(coinInterval);
+    clearInterval(bCoinInterval);
+    clearInterval(fCoinInterval);
+    clearInterval(sCoinInterval);
+    clearInterval(rCoinInterval);
+
+    advesaryInterval = addAdvesaryAnimation();
+    coinInterval = addCoinAnimation();
+    bCoinInterval = addBlueCoinAnimation();
+    fCoinInterval = addFastCoinAnimation();
+    sCoinInterval = addSlowCoinAnimation();
+    rCoinInterval = addRandomCoinAnimation();
+}
+
 // Handle when the player loses
 function lose(msg="Oops! You can't touch that! You lose :("){
     lost = true;
@@ -258,6 +275,7 @@ function lose(msg="Oops! You can't touch that! You lose :("){
         lossMsg.destroy();
 
         coinsRemaining.destroy();
+        resetIntervals();
         player.x = minPlayerXCentered;
         player.y = minPlayerYCentered;
         coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
@@ -269,16 +287,21 @@ function lose(msg="Oops! You can't touch that! You lose :("){
 // Handle when a player collides with/collects a coin
 function handleCoinCollision(val){
     // Handle body size/point increment
-    
-    if(val == 3){
+    function addPoints(){
         extendSnakeBody();
         playerPoints += player_level;
+        let gainMsg = entire_game.add.text(
+            player.x - cellSizeX/2, player.y - cellSizeX/2, 
+            `+${player_level}`
+        );
+        setTimeout(() => {gainMsg.destroy();}, 500);
         sendPlayerStats();
+    }
+    if(val == 3){
+        addPoints();
     }else{
         for(let x = 0; x < 5; x++){
-            extendSnakeBody();
-            playerPoints += player_level;
-            sendPlayerStats();
+            addPoints();
         }
     }
     
@@ -304,7 +327,7 @@ function handleCoinCollision(val){
 
             ascensionMsg = entire_game.add.text(
                 player.x, player.y, 
-                "Congrats! You've unlocked the next level!", 
+                "Level Up!", 
                 {
                     fontSize: '18px',
                     fill: '#ffffff',
@@ -338,19 +361,7 @@ function handleCoinCollision(val){
                 coinsRemaining.destroy();
                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
-                clearInterval(advesaryInterval);
-                clearInterval(coinInterval);
-                clearInterval(bCoinInterval);
-                clearInterval(fCoinInterval);
-                clearInterval(sCoinInterval);
-                clearInterval(rCoinInterval);
-
-                advesaryInterval = addAdvesaryAnimation();
-                coinInterval = addCoinAnimation();
-                bCoinInterval = addBlueCoinAnimation();
-                fCoinInterval = addFastCoinAnimation();
-                sCoinInterval = addSlowCoinAnimation();
-                rCoinInterval = addRandomCoinAnimation();
+                resetIntervals();
                 
                 ascending = false;
             }
@@ -593,7 +604,7 @@ function addRandomCoinAnimation(){
                         delete posToCoins[[x, y]];
                     }
                 }, randomCoinLifeSpan);
-            });
+            }, () => {return (player_level > 2);});
         }
     ], 1);
 }
@@ -667,14 +678,19 @@ function run_game(
 
         // Set spawn rates, points to level up, etc
         resetGameParams(){
-            
+            if (player_level > 1){
+                wait_multiplier = 1.9;
+            }else{
+                wait_multiplier = 1;
+            }
+
             advesariesPerSec = player_level;
             advesaryLifeSpan = 3000 + player_level * 500;
             
             coinsPerSec = player_level / 2;
             coinLifeSpan = 10000;
             
-            pointsToAscend = 10 * player_level;
+            pointsToAscend = 10 * player_level**2;
 
             fastCoinLifeSpan = 10000;
             slowCoinLifeSpan = 10000;
@@ -804,12 +820,7 @@ function run_game(
             posToAdvesaries = {};
             coinsRemaining = game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
 
-            advesaryInterval = addAdvesaryAnimation();
-            coinInterval = addCoinAnimation();
-            bCoinInterval = addBlueCoinAnimation();
-            fCoinInterval = addFastCoinAnimation();
-            sCoinInterval = addSlowCoinAnimation();
-            rCoinInterval = addRandomCoinAnimation();
+            resetIntervals();
 
             console.log("Game started");
         }
@@ -818,6 +829,21 @@ function run_game(
             
             let instructions = 'Move with Arrow Keys\nLeft: ' + movements[0] + '\nRight: '  + movements[1] + '\nUp: ' + movements[2] + '\nDown: '  + movements[3];
             instructionMsg.setText(instructions);
+            {
+                let xdist = player.x - instructionMsg.x;
+                let ydist = player.y - instructionMsg.y;
+                let too_close = (
+                    (xdist == 0
+                    || (xdist < 0 && xdist > -cellSizeX*2)
+                    || (xdist > 0 && xdist < cellSizeX*7))
+                    && (ydist == 0
+                        || (ydist < 0 && ydist > -cellSizeY*2)
+                        || (ydist > 0 && ydist < cellSizeY*3))
+                )
+                if (too_close){
+                    instructionMsg.setText("");
+                }
+            }
             //console.log(movements[0] + "\n" + movements[1] + "\n" + movements [2] + "\n" + movements[3]);
             //console.log(instructions);
 
@@ -873,7 +899,7 @@ function run_game(
                                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
-                            wait_before_movement = wait_time;
+                            wait_before_movement = Math.ceil(wait_time*wait_multiplier);
                             move = 0;   
                         }
                     break;
@@ -888,7 +914,7 @@ function run_game(
                                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
-                            wait_before_movement = wait_time;
+                            wait_before_movement = Math.ceil(wait_time*wait_multiplier);
                             move = 0;
                         }
                         break;
@@ -903,7 +929,7 @@ function run_game(
                                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
-                            wait_before_movement = wait_time;
+                            wait_before_movement = Math.ceil(wait_time*wait_multiplier);
                             move = 0;
                         }
                         break;
@@ -918,7 +944,7 @@ function run_game(
                                 coinsRemaining = entire_game.add.text(player.x, player.y, `${pointsToAscend - playerPoints}`);
                             }
                             handlePossibleCollisions(wallTileslayer.getTileAtWorldXY(player.x, player.y, false));
-                            wait_before_movement = wait_time;
+                            wait_before_movement = Math.ceil(wait_time*wait_multiplier);
                             move = 0;
                         }
                         break;

@@ -1,16 +1,14 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <nav>
-        <div>
-            <button onclick="window.location.href='/home';">Home</button>
-            <button onclick="window.location.href='/login';">Restart</button>
-            <button onclick="window.location.href='/leaderboard';">Leaderboard</button>
-            <button onclick="window.location.href='/rules';">Rules</button>
-        </div>
-    </nav>
     <style>
         nav div {
+            /*position: fixed;*/
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            margin-bottom: 10px;
             text-align: center; /* Center-align the div container within the nav */
         }
 
@@ -45,6 +43,15 @@
     <title>Play Spawn</title>
 </head>
 <body>
+    <nav>
+        <div>
+            <button onclick="window.location.href='/home';">Home</button>
+            <button onclick="window.location.href='/login';">Restart</button>
+            <button onclick="window.location.href='/leaderboard';">Leaderboard</button>
+            <button onclick="window.location.href='/rules';">Rules</button>
+        </div>
+    </nav>
+    <!--<div style="height: 90px; z-index: 1000;"></div>-->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
     <script src="{{url_for('static', filename='js/game.js')}}"></script>
     <!-- Run the game-->
