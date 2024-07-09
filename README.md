@@ -1,4 +1,3 @@
-# "Spawn" README
 ## Running the game:
 - Run reinit.py: This creates the database and initializes all the tables required to run the game and folders.
 - Run Game.py: This starts the server on 127.0.0.1:5000(browser url).
